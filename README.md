@@ -7,6 +7,21 @@ hold the mic, speak naturally, and the order form fills itself in.
 Google Fonts. Voice works out of the box with the browser's built-in recognizer; an
 optional free Gemini API key upgrades accuracy a lot.
 
+## Design
+
+The UI follows **Apple's Human Interface Guidelines**, the closest fit for a small,
+single-purpose utility: one centred card, a neutral grey ramp (`#f5f5f7` page,
+`#ffffff` surface, `#1d1d1f` / `#6e6e73` / `#86868b` labels), hairline separators,
+and system blue `#0071e3` for the single primary action.
+
+- **Segmented controls** use the iOS pattern: a grey track with a white raised pill
+  for the selected option (single-select by construction).
+- **Text fields** are quiet grey fills that turn white with a blue focus ring.
+- **The voice bar** is a translucent glass pill pinned to the bottom, so the form
+  stays the only thing in the centre of the screen.
+- Type scale is tight (13/15/19/24 px, negative tracking on headings), and all
+  tokens live in `:root` — changing the accent is a one-line edit.
+
 ## Run it
 
 Voice input needs **Chrome or Edge**, and a **secure context** (`http://localhost` or HTTPS).
@@ -26,7 +41,7 @@ Open **http://localhost:4173** — and keep using that exact URL.
 
 1. Press the mic button once → Chrome asks for the microphone → **Allow**.
    (Dismissing the prompt with ✕ makes Chrome keep asking.)
-2. The button turns orange and the status reads **"Mic ready — hold to talk"**.
+2. The button turns blue and the status reads **"Mic ready — hold to talk"**.
 3. Hold the mic (or hold **Space**) → speak → release.
 
 If it still asks every time:
@@ -38,7 +53,7 @@ If it still asks every time:
 ## Demo script
 
 > Hold the mic → *"My name is Alex, email alex at example dot com, two coffees, paying by card"*
-> → release → four fields fill and flash, total becomes **$7.00**
+> → release → five fields fill and flash, total becomes **$7.00**
 > → *"place the order"* → confirmation with an order number.
 
 Also understood: *"start over"*, *"I'm done"*, *"one tea"*, *"three hot chocolates"*, *"paying cash"*.
