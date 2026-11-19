@@ -204,6 +204,15 @@
   .fallback-input::placeholder { color: #a89a8e; }
   .fallback-input:focus { border-color: #e6b985; }
 
+  .lang-wrap { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+  .lang-wrap label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #a89a8e; }
+  .lang-wrap select {
+    font: inherit; font-size: 12px; padding: 7px 8px; border-radius: 8px;
+    background: rgba(255,255,255,0.08); color: #fdf3e3;
+    border: 1px solid rgba(255,255,255,0.18); outline: none; cursor: pointer;
+  }
+  @media (max-width: 640px) { .lang-wrap { display: none; } }
+
   @media (max-width: 640px) {
     .voice-bar { gap: 10px; padding: 12px; }
     .mic { width: 56px; height: 56px; font-size: 22px; }
@@ -304,6 +313,14 @@
     <input id="fallbackInput" class="fallback-input" type="text" autocomplete="off"
            placeholder="Mic blocked? Type a command and press Enter…" hidden />
   </div>
+  <div class="lang-wrap">
+    <label for="langSelect">Accent</label>
+    <select id="langSelect" aria-label="Speech recognition language">
+      <option value="en-IN">English (India)</option>
+      <option value="en-US">English (US)</option>
+      <option value="en-GB">English (UK)</option>
+    </select>
+  </div>
 </div>
 
 <script>
@@ -343,6 +360,7 @@ const els = {
   transcript: $("#transcript"),
   actionLog: $("#actionLog"),
   fallbackInput: $("#fallbackInput"),
+  langSelect: $("#langSelect"),
 };
 
 /* ── Segmented controls ─────────────────────────── */
@@ -428,12 +446,61 @@ function applyField(field, value) {
 
 /* ── Rules parser ─────────────────────────────────
    Deterministic on purpose: for a demo, it must never fail.
-   Matches a small, spoken-English command grammar.        */
+   Accent-tolerant: tokens are compared phonetically (Soundex)
+   and with edit distance, so "copy" → coffee and "to" → two
+   still land. No LLM, no network.                            */
 
-const WORD_NUM = { one: 1, two: 2, three: 3, a: 1, an: 1, single: 1 };
+const WORD_NUM = { one: 1, won: 1, two: 2, to: 2, too: 2, three: 3, tree: 3, free: 3 };
+const DRINK_WORDS = [
+  "coffee", "coffees", "latte", "cappuccino", "mocha", "americano", "espresso",
+  "tea", "teas", "tee", "chai", "masala", "hot", "chocolate", "chocolates", "choc", "cocoa", "cacao",
+];
+const NEXT_OK = ["please", "cups", "cup", "of", "those", "them", "more", "and"];
+
+/* Levenshtein distance (small strings only). */
+function lev(a, b) {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (!m || !n) return m || n;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+/* Soundex: coarse phonetic key, so "coffee"/"copy" collide (C100). */
+function soundex(s) {
+  const str = s.toLowerCase().replace(/[^a-z]/g, "");
+  if (!str) return "0000";
+  const map = { b: "1", f: "1", p: "1", v: "1", c: "2", g: "2", j: "2", k: "2", q: "2", s: "2", x: "2", z: "2",
+                d: "3", t: "3", l: "4", m: "5", n: "5", r: "6" };
+  let code = str[0].toUpperCase();
+  let last = map[str[0]] || "";
+  for (let i = 1; i < str.length; i++) {
+    const digit = map[str[i]] || "";
+    if (digit && digit !== last) { code += digit; last = digit; }
+    else if (!digit) last = "";
+  }
+  return (code + "000").slice(0, 4);
+}
+
+function sameWord(a, b) {
+  if (a === b) return true;
+  if (a.length < 3 || b.length < 3) return false;
+  if (Math.abs(a.length - b.length) <= 1 && lev(a, b) <= 1) return true;
+  return a.length >= 4 && b.length >= 4 && Math.abs(a.length - b.length) <= 3 && soundex(a) === soundex(b);
+}
+const hasWord = (tokens, words) => words.some((w) => tokens.some((t) => sameWord(t, w)));
+const isDrinkToken = (t) => DRINK_WORDS.some((w) => sameWord(t, w));
 
 function parseTranscript(raw) {
   const text = raw.toLowerCase().replace(/\s+/g, " ").trim();
+  const tokens = text.split(/[^a-z0-9]+/).filter(Boolean);
   const actions = [];
 
   // ── Place order / cancel ─────────────────────────
@@ -450,34 +517,54 @@ function parseTranscript(raw) {
   if (nameMatch) actions.push({ field: "name", value: capitalize(nameMatch[1]) });
 
   // ── Email ────────────────────────────────────────
-  // e.g. "alex at example dot com" → normalize then match
-  let normalized = text
+  // "alex at example dot com" → normalize, then match
+  const normalized = text
     .replace(/\s+underscore\s+/g, "_")
+    .replace(/\s+(hyphen|dash)\s+/g, "-")
+    .replace(/\s+plus\s+/g, "+")
     .replace(/\s+at\s+/g, "@")
     .replace(/\s+dot\s+/g, ".");
-  let emailMatch = normalized.match(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i);
+  const emailMatch = normalized.match(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i);
   if (emailMatch) actions.push({ field: "email", value: emailMatch[0].toLowerCase() });
 
-  // ── Order type ───────────────────────────────────
-  if (/\bhot\s*choc(olate)?s?\b|\bchoc(olate)?s?\b|\bcacao\b/.test(text)) actions.push({ field: "orderType", value: "hot chocolate" });
-  else if (/\bteas?\b|chai|masala/.test(text)) actions.push({ field: "orderType", value: "tea" });
-  else if (/\bcoffees?\b|latte|cappuccino|mocha|americano|flat white/.test(text)) actions.push({ field: "orderType", value: "coffee" });
+  // ── Order type (phonetic) ────────────────────────
+  const chocolatey = hasWord(tokens, ["chocolate", "chocolates", "choc", "cocoa", "cacao"]);
+  const hot = hasWord(tokens, ["hot"]);
+  if (chocolatey || (hot && hasWord(tokens, ["choc"]))) {
+    actions.push({ field: "orderType", value: "hot chocolate" });
+  } else if (hasWord(tokens, ["tea", "teas", "tee", "chai", "masala"])) {
+    actions.push({ field: "orderType", value: "tea" });
+  } else if (hasWord(tokens, ["coffee", "coffees", "latte", "cappuccino", "mocha", "americano", "espresso"])) {
+    actions.push({ field: "orderType", value: "coffee" });
+  }
 
-  // ── Amount ───────────────────────────────────────
-  const digitMatch = text.match(/\b([1-3])\b/);
-  if (digitMatch) actions.push({ field: "amount", value: Number(digitMatch[1]) });
-  else {
-    for (const [word, n] of Object.entries(WORD_NUM)) {
-      if (new RegExp(`\\b${word}\\b(?=\\s*(coffee|tea|hot\\s*choc|latte|espresso|cappuccino|mocha|americano|flat white|chai|of those|of them|please)?)`).test(text)) {
-        actions.push({ field: "amount", value: n });
-        break;
-      }
+  // ── Amount (digits, or number word next to a drink) ──
+  const SIZE_WORDS = ["large", "small", "medium", "big", "regular", "hot", "iced", "cold"];
+  const drinkWithin = (i) => {
+    for (let j = i + 1; j <= i + 2 && j < tokens.length; j++) {
+      if (isDrinkToken(tokens[j])) return true;
+      if (!SIZE_WORDS.includes(tokens[j])) return false;
     }
+    return false;
+  };
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    let n = null;
+    if (/^[1-3]$/.test(t)) n = Number(t);
+    else if (WORD_NUM[t] != null) n = WORD_NUM[t];
+    else if (t === "a" || t === "an") n = 1;
+    if (n == null) continue;
+    const next = tokens[i + 1] || "";
+    const nextOk = isDrinkToken(next) || NEXT_OK.includes(next) || drinkWithin(i);
+    // "to"/"too" alone is too ambiguous ("I want to order") — require context
+    if ((t === "to" || t === "too") && !nextOk) continue;
+    if ((t === "a" || t === "an") && !drinkWithin(i)) continue;
+    if (nextOk || /^[1-3]$/.test(t)) { actions.push({ field: "amount", value: n }); break; }
   }
 
   // ── Payment ──────────────────────────────────────
-  if (/\bcard\b|credit|debit/.test(text)) actions.push({ field: "payment", value: "card" });
-  else if (/\bcash\b|on delivery|cod\b/.test(text)) actions.push({ field: "payment", value: "cash" });
+  if (hasWord(tokens, ["card", "cards", "credit", "debit"])) actions.push({ field: "payment", value: "card" });
+  else if (hasWord(tokens, ["cash", "kash", "cache"])) actions.push({ field: "payment", value: "cash" });
 
   // Dedupe: last action per field wins ("two teas, actually one coffee")
   const byField = new Map();
@@ -535,6 +622,7 @@ let recognition = null;
 let holding = false;
 let finalTranscript = "";
 let interimTranscript = "";
+let finalCandidates = []; // all N-best alternatives Chrome heard
 let micBlocked = false;
 let micReady = false; // true once the browser has actually granted mic access
 
@@ -608,15 +696,26 @@ if (!SpeechRecognition) {
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.lang = "en-US";
+  recognition.maxAlternatives = 5; // let the parser pick the best of 5 hearings
+  recognition.lang = localStorage.getItem("bb-lang") || "en-IN";
+  els.langSelect.value = recognition.lang;
+  els.langSelect.addEventListener("change", () => {
+    recognition.lang = els.langSelect.value;
+    localStorage.setItem("bb-lang", recognition.lang);
+    logAction(`accent set to ${els.langSelect.value}`);
+  });
 
   recognition.onstart = () => setStatus("listening", "Listening…");
   recognition.onresult = (event) => {
     interimTranscript = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const result = event.results[i];
-      if (result.isFinal) finalTranscript += result[0].transcript + " ";
-      else interimTranscript += result[0].transcript;
+      if (result.isFinal) {
+        finalTranscript += result[0].transcript + " ";
+        for (let a = 0; a < result.length; a++) finalCandidates.push(result[a].transcript);
+      } else {
+        interimTranscript += result[0].transcript;
+      }
     }
     renderTranscript();
   };
@@ -642,6 +741,7 @@ if (!SpeechRecognition) {
     holding = true;
     finalTranscript = "";
     interimTranscript = "";
+    finalCandidates = [];
     els.micBtn.classList.add("holding");
     els.micBtn.setAttribute("aria-pressed", "true");
     try { recognition.start(); } catch { /* already running */ }
@@ -656,10 +756,25 @@ if (!SpeechRecognition) {
     renderTranscript();
     if (!said) { setStatus("idle", "Hold to talk"); return; }
     setStatus("thinking", "Thinking…");
+
+    // Pick the best of Chrome's N-best hearings: the one that maps to
+    // the most fields wins. This is what rescues accented speech.
+    const candidates = [...new Set([said, ...finalCandidates.map((s) => s.trim())])].filter(Boolean);
+    let best = { score: -1, actions: parseTranscript(said), text: said };
+    for (const c of candidates) {
+      const actions = parseTranscript(c);
+      const score = actions.filter((a) => !a.field.startsWith("__")).length;
+      if (score > best.score) best = { score, actions, text: c };
+    }
+    if (best.text !== said) {
+      els.transcript.innerHTML = escapeHtml(best.text) +
+        ` <span class="interim">(heard “${escapeHtml(said)}”)</span>`;
+    }
+
     // Tiny delay so the state is visible — then act.
     setTimeout(() => {
-      const summary = runActions(parseTranscript(said));
-      setStatus(summary === "Reset. Fresh cup." ? "done" : "done", summary);
+      const summary = runActions(best.actions);
+      setStatus("done", summary);
       holding = false;
     }, 350);
   }

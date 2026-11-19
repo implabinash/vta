@@ -41,6 +41,21 @@ If it still asks every time:
 
 Also understood: *"start over"*, *"I'm done"*, *"one tea"*, *"three hot chocolates"*, *"paying cash"*.
 
+## Accents
+
+The **Accent** selector (bottom right) defaults to **English (India)**, because Chrome's
+`en-IN` model handles Indian English far better than `en-US`. It's remembered in
+`localStorage`; switch to US/UK English for other voices.
+
+Speech recognition is never perfect, so the parser is accent-tolerant:
+
+- it requests **5 alternatives** from Chrome and picks the hearing that maps to the most fields
+- tokens are matched **phonetically (Soundex)** and by edit distance, so
+  "copy" → *coffee*, "tree" → *three*, "tee" → *tea*, "kash" → *cash*
+- ambiguous words need context: "I want **to** order" does not become amount 2
+
+If recognition still struggles, use the **type-instead** box (same pipeline, no mic).
+
 ## How it works
 
 ```
