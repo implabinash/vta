@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mic diagnostics — Bean &amp; Byte</title>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; background:#1c1410; color:#f3e6d8; margin:0; padding:32px; }
+  main { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.sub { color:#b9a897; font-size: 13px; margin-top:0; }
+  button { font: inherit; font-size: 14px; padding: 12px 20px; border-radius: 10px; border: none; background:#c96f2e; color:#fff; cursor:pointer; margin: 16px 0 22px; }
+  button:hover { background:#a9541f; }
+  pre { background:#0f0a07; border:1px solid #33241b; border-radius:12px; padding:18px; font-size:13px; line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+  .ok { color:#7ee2a8; } .bad { color:#ff8d7a; } .warn { color:#f2c14e; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Microphone &amp; speech diagnostics</h1>
+  <p class="sub">Open this page at the same URL you use for the prototype (e.g. http://localhost:4173/check.html). Run the check, then copy the report.</p>
+  <button id="run">Run check</button>
+  <pre id="out">Press “Run check”.</pre>
+</main>
+<script>
+const out = document.getElementById("out");
+const lines = [];
+const add = (label, value, cls = "") => lines.push(`${label.padEnd(24)} ${cls ? `<span class="${cls}">${value}</span>` : value}`);
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+async function run() {
+  lines.length = 0;
+  out.innerHTML = "Running…";
+
+  // ── Environment ─────────────────────────────────
+  add("URL", location.href);
+  add("Origin", location.origin);
+  add("Secure context", String(window.isSecureContext), window.isSecureContext ? "ok" : "bad");
+  add("In iframe", String(window.top !== window.self), window.top !== window.self ? "warn" : "ok");
+  add("User agent", navigator.userAgent);
+
+  // ── API availability ────────────────────────────
+  add("SpeechRecognition", SR ? "available" : "MISSING", SR ? "ok" : "bad");
+  add("getUserMedia", navigator.mediaDevices?.getUserMedia ? "available" : "MISSING", navigator.mediaDevices?.getUserMedia ? "ok" : "bad");
+  add("Permissions API", navigator.permissions?.query ? "available" : "MISSING");
+
+  // ── Permission state ────────────────────────────
+  if (navigator.permissions?.query) {
+    try {
+      const p = await navigator.permissions.query({ name: "microphone" });
+      add("Mic permission", p.state, p.state === "granted" ? "ok" : p.state === "denied" ? "bad" : "warn");
+    } catch (e) {
+      add("Mic permission", `query failed: ${e.name}`, "warn");
+    }
+  }
+
+  // ── getUserMedia test ───────────────────────────
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const track = stream.getAudioTracks()[0];
+    add("getUserMedia", "GRANTED", "ok");
+    add("Mic label", track?.label || "(hidden)");
+    stream.getTracks().forEach(t => t.stop());
+  } catch (e) {
+    add("getUserMedia", `${e.name}: ${e.message}`, "bad");
+  }
+
+  // ── SpeechRecognition test (3s) ─────────────────
+  if (SR) {
+    await new Promise((resolve) => {
+      const rec = new SR();
+      rec.lang = "en-US";
+      rec.continuous = false;
+      rec.interimResults = false;
+      let done = false;
+      const finish = (msg, cls) => {
+        if (done) return;
+        done = true;
+        add("SpeechRecognition", msg, cls);
+        try { rec.abort(); } catch {}
+        resolve();
+      };
+      rec.onstart = () => add("SR state", "started listening", "ok");
+      rec.onresult = (e) => finish(`heard "${e.results[0][0].transcript}"`, "ok");
+      rec.onerror = (e) => finish(`error: ${e.error}${e.message ? " — " + e.message : ""}`, "bad");
+      rec.onend = () => setTimeout(() => finish("ended with no result (silence or blocked)", "warn"), 50);
+      try { rec.start(); } catch (e) { finish(`start() threw: ${e.name} ${e.message}`, "bad"); }
+      setTimeout(() => finish("no response after 4s", "warn"), 4000);
+    });
+  }
+
+  out.innerHTML = lines.join("\n");
+}
+
+document.getElementById("run").addEventListener("click", run);
+</script>
+</body>
+</html>
