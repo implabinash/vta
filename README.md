@@ -3,7 +3,9 @@
 A single-page prototype that shows a voice layer taking real actions on a web page:
 hold the mic, speak naturally, and the order form fills itself in.
 
-**Zero dependencies, zero backend, zero API keys.** One file: `index.html`.
+**Zero dependencies, zero backend.** One file: `index.html`.
+Voice works out of the box with the browser's built-in recognizer; an optional free
+Gemini API key upgrades accuracy a lot.
 
 ## Run it
 
@@ -56,22 +58,44 @@ Speech recognition is never perfect, so the parser is accent-tolerant:
 
 If recognition still struggles, use the **type-instead** box (same pipeline, no mic).
 
+## Better accuracy: Gemini transcription (optional, free)
+
+Chrome's recognizer is the weak link on accented speech. The page can instead send
+the recorded audio to Google's `gemini-3.5-transcribe`, which is on the Gemini API
+**free tier** (no card). To enable it:
+
+1. Get a key at <https://aistudio.google.com/apikey>.
+2. In the voice bar, open **“Better accuracy — Gemini”**, paste the key, press **Use**.
+3. Hold the mic as usual. The status shows *Transcribing…* instead of *Listening…*.
+
+Notes:
+
+- The key is stored in this browser's `localStorage` only; it never leaves the machine
+  except in the request to `generativelanguage.googleapis.com`.
+- Requests are direct from the page (CORS is open), so there is **no backend**. That also
+  means the key is visible in devtools — fine for a local demo, not for production.
+- Free tier is free of charge but Google may use the audio to improve their products.
+  Don't send anything sensitive.
+- `Api-Revision` must **not** be sent: that header breaks the CORS preflight.
+- Press **Off** to go back to the built-in recognizer.
+
 ## How it works
 
 ```
-mic → Web Speech API (free, browser-native)
+mic → Web Speech API (free, browser-native)   ← default
+    → or MediaRecorder → Gemini 3.5 Transcribe ← optional key
     → rules parser (deterministic, can't fail on demo vocabulary)
     → DOM actions (set fields, press segmented buttons, submit)
     → status pill + action log + field flash
 ```
 
 The parser only writes values that exist on the page and are valid
-(order type ∈ menu, amount ∈ {1,2,3}, email shape checked). No LLM, no network
-beyond Chrome's speech service.
+(order type ∈ menu, amount ∈ {1,2,3}, email shape checked). No LLM is used for
+the action mapping — that stays deterministic on purpose.
 
 ### Known limits (v0, on purpose)
 
-- Voice recognition needs a network connection (Chrome's speech service).
+- Chrome's built-in recognizer needs a network connection (Chrome's speech service).
 - Safari / Firefox: mic button disables gracefully; the form still works by hand.
 - Free-form phrasing outside the demo vocabulary won't map — that's the v2 (LLM) story.
-- `en-US` recognition only.
+- Built-in recognizer defaults to `en-IN`; switch the Accent dropdown for other voices.

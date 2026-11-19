@@ -204,6 +204,28 @@
   .fallback-input::placeholder { color: #a89a8e; }
   .fallback-input:focus { border-color: #e6b985; }
 
+  .gbox { margin-top: 8px; font-size: 11px; color: #a89a8e; }
+  .gbox summary { cursor: pointer; list-style: none; letter-spacing: 0.04em; }
+  .gbox summary::-webkit-details-marker { display: none; }
+  .gbox summary::before { content: "▸ "; }
+  .gbox[open] summary::before { content: "▾ "; }
+  .gbox-state { color: #7a6a5e; text-transform: uppercase; letter-spacing: 0.16em; font-size: 9px; }
+  .gbox-state.on { color: #7ee2a8; }
+  .gbox-row { display: flex; gap: 6px; margin-top: 8px; }
+  .gbox-row input {
+    flex: 1; min-width: 0; font: inherit; font-size: 12px; padding: 7px 9px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 8px; color: #fdf3e3; outline: none;
+  }
+  .gbox-row input:focus { border-color: #e6b985; }
+  .gbox-row button {
+    font: inherit; font-size: 11px; padding: 0 12px; border-radius: 8px; cursor: pointer;
+    background: #c96f2e; color: #fff; border: none;
+  }
+  .gbox-row button.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.18); color: #cbb8a6; }
+  .gbox-note { margin: 6px 0 0; line-height: 1.5; }
+  .gbox-note a { color: #e6b985; }
+
   .lang-wrap { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
   .lang-wrap label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #a89a8e; }
   .lang-wrap select {
@@ -312,6 +334,21 @@
     <div class="log" id="actionLog"></div>
     <input id="fallbackInput" class="fallback-input" type="text" autocomplete="off"
            placeholder="Mic blocked? Type a command and press Enter…" hidden />
+
+    <details class="gbox" id="geminiBox">
+      <summary>Better accuracy — Gemini <span class="gbox-state" id="geminiState">off</span></summary>
+      <div class="gbox-row">
+        <input id="geminiKey" type="password" autocomplete="off" spellcheck="false"
+               placeholder="Paste Gemini API key" />
+        <button type="button" id="geminiSave">Use</button>
+        <button type="button" id="geminiClear" class="ghost">Off</button>
+      </div>
+      <p class="gbox-note">
+        Free tier, no card. Key from
+        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
+        Stored in this browser only.
+      </p>
+    </details>
   </div>
   <div class="lang-wrap">
     <label for="langSelect">Accent</label>
@@ -361,6 +398,10 @@ const els = {
   actionLog: $("#actionLog"),
   fallbackInput: $("#fallbackInput"),
   langSelect: $("#langSelect"),
+  geminiKey: $("#geminiKey"),
+  geminiSave: $("#geminiSave"),
+  geminiClear: $("#geminiClear"),
+  geminiState: $("#geminiState"),
 };
 
 /* ── Segmented controls ─────────────────────────── */
@@ -624,6 +665,132 @@ let finalTranscript = "";
 let interimTranscript = "";
 let finalCandidates = []; // all N-best alternatives Chrome heard
 let micBlocked = false;
+
+/* Optional Gemini transcription (gemini-3.5-transcribe, free tier).
+   When a key is saved, hold-to-talk records audio and sends it to Gemini
+   instead of using Chrome's on-device recognizer. Same parser afterwards. */
+let geminiKey = localStorage.getItem("bb-gemini-key") || "";
+let recorder = null;
+let recChunks = [];
+let recStream = null;
+
+function setGeminiState() {
+  const on = Boolean(geminiKey);
+  els.geminiState.textContent = on ? "on" : "off";
+  els.geminiState.classList.toggle("on", on);
+  if (on && els.geminiKey) els.geminiKey.value = geminiKey;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function extractGeminiText(data) {
+  const body = Array.isArray(data) ? data[0] : data;
+  if (body && typeof body.output_text === "string" && body.output_text.trim()) return body.output_text.trim();
+  const parts = [];
+  for (const step of (body && body.steps) || []) {
+    for (const c of step.content || []) {
+      if (c.type === "text" && c.text) parts.push(c.text);
+    }
+  }
+  return parts.join(" ").trim();
+}
+
+async function transcribeWithGemini(blob) {
+  setStatus("thinking", "Transcribing…");
+  const b64 = await blobToBase64(blob);
+  const lang = els.langSelect.value || "en-IN";
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": geminiKey,
+    },
+    body: JSON.stringify({
+      model: "models/gemini-3.5-transcribe",
+      input: [{ type: "audio", data: b64, mime_type: "audio/webm" }],
+      generation_config: {
+        transcription_config: {
+          language_codes: [lang],
+          custom_vocabulary: [
+            "coffee", "latte", "cappuccino", "mocha", "americano", "espresso",
+            "tea", "chai", "hot chocolate", "card", "cash", "place order", "start over",
+          ],
+        },
+      },
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  const body = Array.isArray(data) ? data[0] : data;
+  if (!res.ok) {
+    const msg = (body && body.error && body.error.message) || `HTTP ${res.status}`;
+    const details = (body && body.error && body.error.details) || [];
+    const reason = details[0] && details[0].reason;
+    if (reason === "API_KEY_INVALID") throw new Error("key invalid — paste it again");
+    if (res.status === 429) throw new Error("rate limited — wait a few seconds");
+    throw new Error(msg);
+  }
+  const text = extractGeminiText(data);
+  if (!text) throw new Error("no speech detected");
+  return text;
+}
+
+async function startGeminiRecording() {
+  setStatus("listening", "Listening…");
+  els.transcript.innerHTML = '<span class="interim">recording…</span>';
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    holding = false;
+    els.micBtn.classList.remove("holding");
+    els.micBtn.setAttribute("aria-pressed", "false");
+    setStatus("error", "Mic unavailable");
+    logAction("mic permission was not granted");
+    return;
+  }
+  if (!holding) {
+    recStream.getTracks().forEach((t) => t.stop());
+    setStatus("idle", "Hold to talk");
+    return;
+  }
+  recChunks = [];
+  const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+  recorder = new MediaRecorder(recStream, { mimeType: mime });
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
+  recorder.onstop = async () => {
+    recStream.getTracks().forEach((t) => t.stop());
+    const blob = new Blob(recChunks, { type: "audio/webm" });
+    if (blob.size < 1500) { setStatus("idle", "Too short — hold and speak"); return; }
+    try {
+      const said = await transcribeWithGemini(blob);
+      els.transcript.innerHTML = escapeHtml(said);
+      setStatus("thinking", "Thinking…");
+      setTimeout(() => {
+        const summary = runActions(parseTranscript(said));
+        setStatus("done", summary);
+      }, 200);
+    } catch (err) {
+      setStatus("error", `Gemini: ${err.message}`);
+      logAction(`gemini error — ${err.message}`);
+    }
+  };
+  recorder.start();
+}
+
+function stopGeminiRecording() {
+  els.micBtn.classList.remove("holding");
+  els.micBtn.setAttribute("aria-pressed", "false");
+  if (recorder && recorder.state !== "inactive") {
+    setStatus("thinking", "Transcribing…");
+    recorder.stop();
+  }
+}
 let micReady = false; // true once the browser has actually granted mic access
 
 /* Ask once, explicitly, so the grant is remembered for this origin.
@@ -739,16 +906,18 @@ if (!SpeechRecognition) {
     if (!micReady) { requestMicPermission(); return; }
     if (holding) return;
     holding = true;
+    els.micBtn.classList.add("holding");
+    els.micBtn.setAttribute("aria-pressed", "true");
+    if (geminiKey) { startGeminiRecording(); return; }
     finalTranscript = "";
     interimTranscript = "";
     finalCandidates = [];
-    els.micBtn.classList.add("holding");
-    els.micBtn.setAttribute("aria-pressed", "true");
     try { recognition.start(); } catch { /* already running */ }
   }
   function endHold() {
     if (!holding) return;
     holding = false;
+    if (geminiKey) { stopGeminiRecording(); return; }
     try { recognition.stop(); } catch { processFinal(); }
   }
   function processFinal() {
@@ -809,6 +978,29 @@ els.fallbackInput.addEventListener("keydown", (e) => {
     setStatus("done", summary);
   }, 300);
 });
+
+/* Gemini key UI: optional, stored locally, no server involved. */
+els.geminiSave.addEventListener("click", () => {
+  const key = els.geminiKey.value.trim();
+  if (!key) return;
+  geminiKey = key;
+  localStorage.setItem("bb-gemini-key", key);
+  setGeminiState();
+  logAction("gemini transcription on");
+  setStatus("idle", "Gemini ready — hold to talk");
+});
+els.geminiClear.addEventListener("click", () => {
+  geminiKey = "";
+  localStorage.removeItem("bb-gemini-key");
+  els.geminiKey.value = "";
+  setGeminiState();
+  logAction("using Chrome speech");
+  setStatus("idle", "Hold to talk");
+});
+els.geminiKey.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); els.geminiSave.click(); }
+});
+setGeminiState();
 
 logAction("ready — hold the mic and speak");
 </script>
