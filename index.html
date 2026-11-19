@@ -196,6 +196,14 @@
   .log { font-size: 11px; color: #a89a8e; max-height: 42px; overflow: hidden; margin-top: 6px; }
   .log div { line-height: 1.5; }
 
+  .fallback-input {
+    margin-top: 8px; width: 100%; font: inherit; font-size: 13px;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 8px; padding: 8px 10px; color: #fdf3e3; outline: none;
+  }
+  .fallback-input::placeholder { color: #a89a8e; }
+  .fallback-input:focus { border-color: #e6b985; }
+
   @media (max-width: 640px) {
     .voice-bar { gap: 10px; padding: 12px; }
     .mic { width: 56px; height: 56px; font-size: 22px; }
@@ -293,6 +301,8 @@
     </div>
     <div class="transcript" id="transcript"><span class="placeholder">Your words will appear here…</span></div>
     <div class="log" id="actionLog"></div>
+    <input id="fallbackInput" class="fallback-input" type="text" autocomplete="off"
+           placeholder="Mic blocked? Type a command and press Enter…" hidden />
   </div>
 </div>
 
@@ -332,6 +342,7 @@ const els = {
   statusText: $("#statusText"),
   transcript: $("#transcript"),
   actionLog: $("#actionLog"),
+  fallbackInput: $("#fallbackInput"),
 };
 
 /* ── Segmented controls ─────────────────────────── */
@@ -448,9 +459,9 @@ function parseTranscript(raw) {
   if (emailMatch) actions.push({ field: "email", value: emailMatch[0].toLowerCase() });
 
   // ── Order type ───────────────────────────────────
-  if (/\bhot\s*choc(olate)?\b|\bchoc(olate)?\b|\bcacao\b/.test(text)) actions.push({ field: "orderType", value: "hot chocolate" });
-  else if (/\btea\b|chai|masala/.test(text)) actions.push({ field: "orderType", value: "tea" });
-  else if (/\bcoffee\b|latte|espresso|cappuccino|mocha|americano|flat white/.test(text)) actions.push({ field: "orderType", value: "coffee" });
+  if (/\bhot\s*choc(olate)?s?\b|\bchoc(olate)?s?\b|\bcacao\b/.test(text)) actions.push({ field: "orderType", value: "hot chocolate" });
+  else if (/\bteas?\b|chai|masala/.test(text)) actions.push({ field: "orderType", value: "tea" });
+  else if (/\bcoffees?\b|latte|cappuccino|mocha|americano|flat white/.test(text)) actions.push({ field: "orderType", value: "coffee" });
 
   // ── Amount ───────────────────────────────────────
   const digitMatch = text.match(/\b([1-3])\b/);
@@ -539,14 +550,16 @@ async function requestMicPermission() {
     micBlocked = false;
     els.micBtn.classList.remove("mic-off");
     els.micBtn.setAttribute("aria-label", "Hold to talk");
+    els.fallbackInput.hidden = true;
     setStatus("idle", "Mic ready — hold to talk");
     logAction("microphone enabled");
     return true;
   } catch (err) {
     micBlocked = true;
+    els.fallbackInput.hidden = false;
     const denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
-    setStatus("error", denied ? "Mic blocked — allow it in the address bar" : "Mic unavailable");
-    logAction("mic permission was not granted");
+    setStatus("error", denied ? "Mic blocked — open in Chrome, then Allow" : "Mic unavailable");
+    logAction(denied ? "blocked here — open http://localhost:4173 in Chrome/Edge" : "mic permission was not granted");
     return false;
   }
 }
@@ -560,6 +573,7 @@ async function syncMicState() {
     if (!micReady) {
       els.micBtn.classList.add("mic-off");
       els.micBtn.setAttribute("aria-label", "Enable microphone");
+      els.fallbackInput.hidden = false;
       setStatus("idle", perm.state === "denied" ? "Mic blocked — fix site settings" : "Press once to enable mic");
     }
     perm.onchange = () => {
@@ -567,6 +581,7 @@ async function syncMicState() {
       if (micReady) {
         els.micBtn.classList.remove("mic-off");
         els.micBtn.setAttribute("aria-label", "Hold to talk");
+        els.fallbackInput.hidden = true;
         setStatus("idle", "Mic ready — hold to talk");
       }
     };
@@ -588,6 +603,7 @@ if (!SpeechRecognition) {
   els.micBtn.disabled = true;
   els.micBtn.style.opacity = 0.4;
   els.micBtn.style.cursor = "not-allowed";
+  els.fallbackInput.hidden = false;
 } else {
   recognition = new SpeechRecognition();
   recognition.continuous = true;
@@ -663,6 +679,21 @@ if (!SpeechRecognition) {
     if (e.code === "Space") endHold();
   });
 }
+
+/* Type-instead fallback: same pipeline, no mic required.
+   Useful when the mic is blocked or unavailable. */
+els.fallbackInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const text = els.fallbackInput.value.trim();
+  if (!text) return;
+  els.fallbackInput.value = "";
+  els.transcript.innerHTML = escapeHtml(text);
+  setStatus("thinking", "Thinking…");
+  setTimeout(() => {
+    const summary = runActions(parseTranscript(text));
+    setStatus("done", summary);
+  }, 300);
+});
 
 logAction("ready — hold the mic and speak");
 </script>
