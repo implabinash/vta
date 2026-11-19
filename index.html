@@ -164,6 +164,10 @@
     display: flex; align-items: center; justify-content: center;
   }
   .mic:hover { transform: scale(1.05); }
+  .mic.mic-off {
+    background: linear-gradient(160deg, #7a6a5e, #55463c);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.25);
+  }
   .mic.holding {
     background: linear-gradient(160deg, #e0492f, #b8321e);
     transform: scale(1.12);
@@ -215,7 +219,7 @@
       <div class="menu-item"><span>Hot Chocolate<small>with whipped cream</small></span><span>$3.75</span></div>
     </div>
 
-    <p class="hint">Try saying: <kbd>my name is Alex, email alex at example dot com, two coffees, paying by card</kbd> — then <kbd>place the order</kbd>. Works in Chrome &amp; Edge.</p>
+    <p class="hint">Try saying: <kbd>my name is Alex, email alex at example dot com, two coffees, paying by card</kbd> — then <kbd>place the order</kbd>. First press the mic once to allow access, then just hold &amp; speak. Works in Chrome &amp; Edge.</p>
   </aside>
 
   <!-- Right pane -->
@@ -521,6 +525,53 @@ let holding = false;
 let finalTranscript = "";
 let interimTranscript = "";
 let micBlocked = false;
+let micReady = false; // true once the browser has actually granted mic access
+
+/* Ask once, explicitly, so the grant is remembered for this origin.
+   Chrome keys microphone permission to the origin — so always open the
+   page at the SAME URL (http://localhost:<fixed-port>/). */
+async function requestMicPermission() {
+  setStatus("thinking", "Requesting microphone…");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop()); // release the device; SpeechRecognition takes over
+    micReady = true;
+    micBlocked = false;
+    els.micBtn.classList.remove("mic-off");
+    els.micBtn.setAttribute("aria-label", "Hold to talk");
+    setStatus("idle", "Mic ready — hold to talk");
+    logAction("microphone enabled");
+    return true;
+  } catch (err) {
+    micBlocked = true;
+    const denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
+    setStatus("error", denied ? "Mic blocked — allow it in the address bar" : "Mic unavailable");
+    logAction("mic permission was not granted");
+    return false;
+  }
+}
+
+/* Reflect the current permission state on the mic button. */
+async function syncMicState() {
+  if (!navigator.permissions || !navigator.permissions.query) return;
+  try {
+    const perm = await navigator.permissions.query({ name: "microphone" });
+    micReady = perm.state === "granted";
+    if (!micReady) {
+      els.micBtn.classList.add("mic-off");
+      els.micBtn.setAttribute("aria-label", "Enable microphone");
+      setStatus("idle", perm.state === "denied" ? "Mic blocked — fix site settings" : "Press once to enable mic");
+    }
+    perm.onchange = () => {
+      micReady = perm.state === "granted";
+      if (micReady) {
+        els.micBtn.classList.remove("mic-off");
+        els.micBtn.setAttribute("aria-label", "Hold to talk");
+        setStatus("idle", "Mic ready — hold to talk");
+      }
+    };
+  } catch { /* permissions API unsupported — handled on first press */ }
+}
 
 function renderTranscript() {
   const parts = [];
@@ -569,6 +620,8 @@ if (!SpeechRecognition) {
 
   function startHold(e) {
     e.preventDefault();
+    // First press: enable the mic (one-time grant). Then holds just talk.
+    if (!micReady) { requestMicPermission(); return; }
     if (holding) return;
     holding = true;
     finalTranscript = "";
@@ -600,6 +653,7 @@ if (!SpeechRecognition) {
   els.micBtn.addEventListener("pointerleave", () => { /* keep recording if pointer drifts off the button */ });
   window.addEventListener("pointercancel", endHold);
   els.micBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+  syncMicState(); // show "enable mic" until the browser has granted access
 
   // Keyboard: hold Space to talk
   window.addEventListener("keydown", (e) => {
