@@ -132,10 +132,9 @@
   /* Field flash when voice fills it */
   .flash { animation: flash 1.1s ease; }
   @keyframes flash {
-    0%, 55% { background: #ffe9c9; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(233,160,60,0.35); }
-    100% { background: transparent; }
+    0%, 45% { background: #ffe9c9; border-color: var(--accent); color: var(--espresso); box-shadow: 0 0 0 3px rgba(233,160,60,0.35); }
+    100% { background: transparent; box-shadow: none; }
   }
-  .seg button.flash { background: #ffe9c9; color: var(--espresso); }
 
   /* Order confirmation */
   .confirm { display: none; text-align: center; padding: 18px 14px 4px; }
@@ -404,22 +403,26 @@ const els = {
   geminiState: $("#geminiState"),
 };
 
-/* ── Segmented controls ─────────────────────────── */
+/* ── Segmented controls (single-select) ─────────── */
 function segGet(segEl) {
   return segEl.querySelector('[aria-pressed="true"]')?.dataset.value;
 }
 function segSet(segEl, value, flash = true) {
+  const buttons = [...segEl.querySelectorAll("button")];
   let changed = false;
-  segEl.querySelectorAll("button").forEach((btn) => {
+
+  // Only one button may be pressed, and only one may flash.
+  buttons.forEach((btn) => btn.classList.remove("flash"));
+  buttons.forEach((btn) => {
     const on = btn.dataset.value === value;
     if (on && btn.getAttribute("aria-pressed") !== "true") changed = true;
     btn.setAttribute("aria-pressed", on ? "true" : "false");
-    if (flash && on && changed) {
-      btn.classList.remove("flash");
-      void btn.offsetWidth;
-      btn.classList.add("flash");
-    }
   });
+
+  if (flash && changed) {
+    const target = buttons.find((btn) => btn.dataset.value === value);
+    if (target) startFlash(target);
+  }
   return changed;
 }
 [els.orderType, els.amount, els.payment].forEach((seg) => {
@@ -454,11 +457,26 @@ function logAction(text) {
   els.actionLog.prepend(div);
   while (els.actionLog.children.length > MAX_LOG) els.actionLog.lastChild.remove();
 }
-function flashField(el) {
+function startFlash(el) {
   el.classList.remove("flash");
-  void el.offsetWidth;
+  void el.offsetWidth; // restart the animation
   el.classList.add("flash");
+  // Guaranteed cleanup: animations pause in background tabs, so don't rely
+  // on animationend alone.
+  clearTimeout(el._flashTimer);
+  el._flashTimer = setTimeout(() => el.classList.remove("flash"), 1150);
 }
+function flashField(el) {
+  startFlash(el);
+}
+/* The flash is a one-shot highlight — drop the class when it finishes so it
+   can never outlive the action and masquerade as a selected state. */
+document.addEventListener("animationend", (e) => {
+  if (e.animationName === "flash") {
+    clearTimeout(e.target._flashTimer);
+    e.target.classList.remove("flash");
+  }
+});
 
 /* Apply one parsed field to the UI; returns a human-readable action or null. */
 function applyField(field, value) {
