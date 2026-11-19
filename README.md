@@ -1,4 +1,4 @@
-# Bean & Byte — voice-to-action ordering prototype
+# Beans and Byte — voice-to-action ordering prototype
 
 A single-page prototype that shows a voice layer taking real actions on a web page:
 hold the mic, speak naturally, and the order form fills itself in.
