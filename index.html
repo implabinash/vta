@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bean &amp; Byte — Order by Voice</title>
+<meta name="description" content="A voice-operated ordering prototype. Hold the mic, speak your order, watch the form fill itself." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>☕</text></svg>" />
+<style>
+  :root {
+    --bean: #3b2417;
+    --espresso: #241610;
+    --crust: #f5e9dc;
+    --paper: #fdf8f1;
+    --accent: #c96f2e;
+    --accent-dark: #a9541f;
+    --latte: #e8d9c8;
+    --ok: #2e7d4f;
+    --shadow: 0 18px 45px rgba(36, 22, 16, 0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background:
+      radial-gradient(1200px 700px at 80% -10%, #f7e3cd 0%, transparent 60%),
+      radial-gradient(900px 600px at -10% 110%, #ecd7c0 0%, transparent 55%),
+      var(--crust);
+    color: var(--espresso);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 16px 140px; /* room for the voice bar */
+  }
+
+  .card {
+    width: 100%;
+    max-width: 960px;
+    background: var(--paper);
+    border: 1px solid rgba(59, 36, 23, 0.12);
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+  }
+  @media (max-width: 860px) { .card { grid-template-columns: 1fr; } }
+
+  /* ── Left rail: the café ─────────────────────────── */
+  .rail {
+    background: linear-gradient(165deg, var(--bean) 0%, var(--espresso) 100%);
+    color: #f3e6d8;
+    padding: 40px 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+    position: relative;
+    overflow: hidden;
+  }
+  .rail::after {
+    content: "☕";
+    position: absolute;
+    font-size: 260px;
+    opacity: 0.05;
+    right: -40px;
+    bottom: -60px;
+    transform: rotate(-12deg);
+    pointer-events: none;
+  }
+  .brand { font-size: 15px; letter-spacing: 0.28em; text-transform: uppercase; opacity: 0.75; }
+  .rail h1 { font-size: 44px; line-height: 1.08; font-weight: 400; }
+  .rail h1 em { color: #e6b985; font-style: italic; }
+  .rail p.lede { font-size: 15px; line-height: 1.55; opacity: 0.85; max-width: 34ch; }
+
+  .menu { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+  .menu h2 { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.6; font-weight: 400; }
+  .menu-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 1px dashed rgba(243,230,216,0.18); padding-bottom: 10px; }
+  .menu-item span:first-child { font-size: 17px; }
+  .menu-item small { display: block; font-size: 11px; opacity: 0.6; font-family: ui-sans-serif, system-ui, sans-serif; margin-top: 2px; }
+  .menu-item span:last-child { font-size: 15px; color: #e6b985; }
+
+  .hint { font-size: 12.5px; line-height: 1.6; opacity: 0.7; font-family: ui-sans-serif, system-ui, sans-serif; border-left: 2px solid rgba(230,185,133,0.4); padding-left: 12px; }
+  kbd { background: rgba(255,255,255,0.12); border-radius: 4px; padding: 1px 6px; font-size: 11px; }
+
+  /* ── Right pane: the form ────────────────────────── */
+  .pane { padding: 40px 40px 36px; display: flex; flex-direction: column; gap: 22px; }
+  .pane-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--bean); padding-bottom: 12px; }
+  .pane-header h2 { font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent-dark); font-family: ui-sans-serif, system-ui, sans-serif; }
+  .pane-header span { font-size: 12px; color: #8a6f5c; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  .field { display: flex; flex-direction: column; gap: 8px; }
+  .field > label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #7c5a44; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  input[type="text"], input[type="email"] {
+    font: inherit; font-size: 17px; padding: 12px 14px;
+    border: 1.5px solid var(--latte); border-radius: 10px; background: #fff;
+    color: var(--espresso); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(201,111,46,0.18); }
+
+  .seg { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seg button {
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px;
+    padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--latte);
+    background: #fff; color: var(--espresso); cursor: pointer;
+    transition: all 0.18s; display: flex; align-items: center; gap: 8px;
+  }
+  .seg button small { opacity: 0.55; font-size: 11px; }
+  .seg button:hover { border-color: var(--accent); }
+  .seg button[aria-pressed="true"] {
+    background: var(--bean); border-color: var(--bean); color: #f3e6d8;
+  }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 520px) { .two-col { grid-template-columns: 1fr; } }
+
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; border-top: 1.5px dashed var(--latte); padding-top: 14px; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .total-row span:first-child { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #7c5a44; }
+  .total-row strong { font-size: 28px; color: var(--bean); }
+
+  .place-order {
+    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase;
+    background: var(--accent); color: #fff; border: none; border-radius: 12px;
+    padding: 16px; cursor: pointer; box-shadow: 0 8px 20px rgba(201,111,46,0.4);
+    transition: transform 0.15s, background 0.2s;
+  }
+  .place-order:hover { background: var(--accent-dark); transform: translateY(-1px); }
+
+  /* Field flash when voice fills it */
+  .flash { animation: flash 1.1s ease; }
+  @keyframes flash {
+    0%, 55% { background: #ffe9c9; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(233,160,60,0.35); }
+    100% { background: transparent; }
+  }
+  .seg button.flash { background: #ffe9c9; color: var(--espresso); }
+
+  /* Order confirmation */
+  .confirm { display: none; text-align: center; padding: 18px 14px 4px; }
+  .confirm h3 { font-size: 24px; color: var(--ok); margin-bottom: 6px; }
+  .confirm .num { font-size: 13px; letter-spacing: 0.25em; color: var(--accent-dark); font-family: ui-sans-serif, system-ui, sans-serif; text-transform: uppercase; }
+  .confirm p { font-size: 14px; margin: 12px 0 14px; color: #6b4b37; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .confirm button { background: none; border: 1.5px solid var(--bean); border-radius: 999px; padding: 10px 22px; cursor: pointer; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  /* ── Voice bar ───────────────────────────────────── */
+  .voice-bar {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+    width: min(720px, calc(100vw - 32px));
+    background: rgba(36, 22, 16, 0.92); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 18px;
+    padding: 14px 18px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35); z-index: 50;
+    font-family: ui-sans-serif, system-ui, sans-serif; color: #f3e6d8;
+  }
+
+  .mic {
+    width: 64px; height: 64px; border-radius: 50%; border: none; flex: 0 0 auto;
+    background: linear-gradient(160deg, #d9822f, #b85e1e); color: #fff;
+    font-size: 26px; cursor: pointer; touch-action: none; user-select: none;
+    box-shadow: 0 6px 18px rgba(217,130,47,0.45), inset 0 -3px 6px rgba(0,0,0,0.25);
+    transition: transform 0.15s, box-shadow 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .mic:hover { transform: scale(1.05); }
+  .mic.holding {
+    background: linear-gradient(160deg, #e0492f, #b8321e);
+    transform: scale(1.12);
+    box-shadow: 0 0 0 8px rgba(224,73,47,0.25), 0 6px 24px rgba(224,73,47,0.5);
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 6px rgba(224,73,47,0.3); } 50% { box-shadow: 0 0 0 14px rgba(224,73,47,0.12); } }
+
+  .voice-meta { flex: 1; min-width: 0; }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #e6b985; margin-bottom: 6px;
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8f847c; }
+  .status-pill[data-state="listening"] .status-dot { background: #ff6a3d; animation: blink 0.8s infinite; }
+  .status-pill[data-state="thinking"] .status-dot { background: #f2c14e; animation: blink 0.5s infinite; }
+  .status-pill[data-state="done"] .status-dot { background: #4ade80; }
+  .status-pill[data-state="error"] .status-dot { background: #f87171; }
+  @keyframes blink { 50% { opacity: 0.25; } }
+
+  .transcript { font-size: 14.5px; min-height: 1.4em; color: #fdf3e3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .transcript .interim { opacity: 0.55; font-style: italic; }
+  .transcript .placeholder { opacity: 0.4; font-style: italic; }
+
+  .log { font-size: 11px; color: #a89a8e; max-height: 42px; overflow: hidden; margin-top: 6px; }
+  .log div { line-height: 1.5; }
+
+  @media (max-width: 640px) {
+    .voice-bar { gap: 10px; padding: 12px; }
+    .mic { width: 56px; height: 56px; font-size: 22px; }
+    .log { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<main class="card">
+  <!-- Left rail -->
+  <aside class="rail">
+    <span class="brand">Bean &amp; — Byte</span>
+    <h1>Order by <em>voice.</em><br />No mouse required.</h1>
+    <p class="lede">Hold the mic button, say your order naturally, and watch the form fill itself in. Voice, wired straight into the page.</p>
+
+    <div class="menu">
+      <h2>Today's menu</h2>
+      <div class="menu-item"><span>Coffee<small>espresso · latte · cappuccino · mocha</small></span><span>$3.50</span></div>
+      <div class="menu-item"><span>Tea<small>green · chai · masala</small></span><span>$3.00</span></div>
+      <div class="menu-item"><span>Hot Chocolate<small>with whipped cream</small></span><span>$3.75</span></div>
+    </div>
+
+    <p class="hint">Try saying: <kbd>my name is Alex, email alex at example dot com, two coffees, paying by card</kbd> — then <kbd>place the order</kbd>. Works in Chrome &amp; Edge.</p>
+  </aside>
+
+  <!-- Right pane -->
+  <section class="pane">
+    <div class="pane-header">
+      <h2>Your Order</h2>
+      <span>hold the mic · speak · release</span>
+    </div>
+
+    <div id="formView" style="display:flex; flex-direction:column; gap:22px;">
+      <div class="two-col">
+        <div class="field">
+          <label for="name">Name</label>
+          <input type="text" id="name" placeholder="Alex Rivera" autocomplete="name" />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Order type</label>
+        <div class="seg" id="orderType">
+          <button data-value="coffee" aria-pressed="true">☕ Coffee <small>$3.50</small></button>
+          <button data-value="tea" aria-pressed="false">🍵 Tea <small>$3.00</small></button>
+          <button data-value="hot chocolate" aria-pressed="false">🍫 Hot Chocolate <small>$3.75</small></button>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="field">
+          <label>Amount</label>
+          <div class="seg" id="amount">
+            <button data-value="1" aria-pressed="true">1</button>
+            <button data-value="2" aria-pressed="false">2</button>
+            <button data-value="3" aria-pressed="false">3</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Payment</label>
+          <div class="seg" id="payment">
+            <button data-value="card" aria-pressed="true">💳 Card</button>
+            <button data-value="cash" aria-pressed="false">💵 Cash</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="total-row"><span>Total</span><strong id="total">$3.50</strong></div>
+
+      <button class="place-order" id="placeOrder">Place Order →</button>
+    </div>
+
+    <!-- Confirmation -->
+    <div class="confirm" id="confirmView">
+      <div class="num" id="orderNum">Order #</div>
+      <h3>Barista's waiting. ☕</h3>
+      <p id="orderSummary"></p>
+      <button id="newOrder">Start a new order</button>
+    </div>
+  </section>
+</main>
+
+<!-- Voice bar -->
+<div class="voice-bar" role="region" aria-label="Voice ordering">
+  <button class="mic" id="micBtn" aria-label="Hold to talk" aria-pressed="false">🎤</button>
+  <div class="voice-meta">
+    <div class="status-pill" id="statusPill" data-state="idle">
+      <span class="status-dot"></span>
+      <span id="statusText">Hold to talk</span>
+    </div>
+    <div class="transcript" id="transcript"><span class="placeholder">Your words will appear here…</span></div>
+    <div class="log" id="actionLog"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ─────────────────────────────────────────────
+   Bean & Byte — voice-to-action prototype
+   Pipeline: mic → Web Speech API → rules parser
+             → DOM actions → status + highlight
+   ───────────────────────────────────────────── */
+
+const PRICES = { coffee: 3.5, tea: 3.0, "hot chocolate": 3.75 };
+const MAX_LOG = 4;
+
+// Live page state — this is the JSON the parser reads from and writes to.
+const state = { name: "", email: "", orderType: "coffee", amount: 1, payment: "card" };
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+const els = {
+  name: $("#name"),
+  email: $("#email"),
+  orderType: $("#orderType"),
+  amount: $("#amount"),
+  payment: $("#payment"),
+  total: $("#total"),
+  placeOrder: $("#placeOrder"),
+  formView: $("#formView"),
+  confirmView: $("#confirmView"),
+  orderNum: $("#orderNum"),
+  orderSummary: $("#orderSummary"),
+  newOrder: $("#newOrder"),
+  micBtn: $("#micBtn"),
+  statusPill: $("#statusPill"),
+  statusText: $("#statusText"),
+  transcript: $("#transcript"),
+  actionLog: $("#actionLog"),
+};
+
+/* ── Segmented controls ─────────────────────────── */
+function segGet(segEl) {
+  return segEl.querySelector('[aria-pressed="true"]')?.dataset.value;
+}
+function segSet(segEl, value, flash = true) {
+  let changed = false;
+  segEl.querySelectorAll("button").forEach((btn) => {
+    const on = btn.dataset.value === value;
+    if (on && btn.getAttribute("aria-pressed") !== "true") changed = true;
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    if (flash && on && changed) {
+      btn.classList.remove("flash");
+      void btn.offsetWidth;
+      btn.classList.add("flash");
+    }
+  });
+  return changed;
+}
+[els.orderType, els.amount, els.payment].forEach((seg) => {
+  seg.addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    segSet(seg, btn.dataset.value, false);
+    syncStateFromUI();
+  });
+});
+
+function syncStateFromUI() {
+  state.name = els.name.value.trim();
+  state.email = els.email.value.trim();
+  state.orderType = segGet(els.orderType);
+  state.amount = Number(segGet(els.amount));
+  state.payment = segGet(els.payment);
+  els.total.textContent = "$" + (PRICES[state.orderType] * state.amount).toFixed(2);
+}
+els.name.addEventListener("input", syncStateFromUI);
+els.email.addEventListener("input", syncStateFromUI);
+syncStateFromUI();
+
+/* ── HUD: status pill + action log ──────────────── */
+function setStatus(stateName, text) {
+  els.statusPill.dataset.state = stateName;
+  els.statusText.textContent = text;
+}
+function logAction(text) {
+  const div = document.createElement("div");
+  div.textContent = "→ " + text;
+  els.actionLog.prepend(div);
+  while (els.actionLog.children.length > MAX_LOG) els.actionLog.lastChild.remove();
+}
+function flashField(el) {
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+}
+
+/* Apply one parsed field to the UI; returns a human-readable action or null. */
+function applyField(field, value) {
+  switch (field) {
+    case "name":
+      els.name.value = value;
+      flashField(els.name);
+      return `name = ${value}`;
+    case "email":
+      els.email.value = value;
+      flashField(els.email);
+      return `email = ${value}`;
+    case "orderType":
+      segSet(els.orderType, value, true);
+      return `order = ${value}`;
+    case "amount":
+      segSet(els.amount, String(value), true);
+      return `amount = ${value}`;
+    case "payment":
+      segSet(els.payment, value, true);
+      return `payment = ${value}`;
+    default:
+      return null;
+  }
+}
+
+/* ── Rules parser ─────────────────────────────────
+   Deterministic on purpose: for a demo, it must never fail.
+   Matches a small, spoken-English command grammar.        */
+
+const WORD_NUM = { one: 1, two: 2, three: 3, a: 1, an: 1, single: 1 };
+
+function parseTranscript(raw) {
+  const text = raw.toLowerCase().replace(/\s+/g, " ").trim();
+  const actions = [];
+
+  // ── Place order / cancel ─────────────────────────
+  if (/(place (the )?order|confirm( the)? order|checkout|that'?s (all|it)|submit|i'?m done|done ordering)/.test(text)) {
+    if (!/cancel|reset|start over/.test(text)) { actions.push({ field: "__submit", value: true }); return actions; }
+  }
+  if (/(start over|reset|clear (the )?(form|order)|cancel (the )?order)/.test(text)) {
+    actions.push({ field: "__reset", value: true });
+    return actions;
+  }
+
+  // ── Name ─────────────────────────────────────────
+  const nameMatch = text.match(/(?:my name is|it'?s|i am|i'?m|call me|this is|name is)\s+([a-z][a-z'\-]{1,28})/i);
+  if (nameMatch) actions.push({ field: "name", value: capitalize(nameMatch[1]) });
+
+  // ── Email ────────────────────────────────────────
+  // e.g. "alex at example dot com" → normalize then match
+  let normalized = text
+    .replace(/\s+underscore\s+/g, "_")
+    .replace(/\s+at\s+/g, "@")
+    .replace(/\s+dot\s+/g, ".");
+  let emailMatch = normalized.match(/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i);
+  if (emailMatch) actions.push({ field: "email", value: emailMatch[0].toLowerCase() });
+
+  // ── Order type ───────────────────────────────────
+  if (/\bhot\s*choc(olate)?\b|\bchoc(olate)?\b|\bcacao\b/.test(text)) actions.push({ field: "orderType", value: "hot chocolate" });
+  else if (/\btea\b|chai|masala/.test(text)) actions.push({ field: "orderType", value: "tea" });
+  else if (/\bcoffee\b|latte|espresso|cappuccino|mocha|americano|flat white/.test(text)) actions.push({ field: "orderType", value: "coffee" });
+
+  // ── Amount ───────────────────────────────────────
+  const digitMatch = text.match(/\b([1-3])\b/);
+  if (digitMatch) actions.push({ field: "amount", value: Number(digitMatch[1]) });
+  else {
+    for (const [word, n] of Object.entries(WORD_NUM)) {
+      if (new RegExp(`\\b${word}\\b(?=\\s*(coffee|tea|hot\\s*choc|latte|espresso|cappuccino|mocha|americano|flat white|chai|of those|of them|please)?)`).test(text)) {
+        actions.push({ field: "amount", value: n });
+        break;
+      }
+    }
+  }
+
+  // ── Payment ──────────────────────────────────────
+  if (/\bcard\b|credit|debit/.test(text)) actions.push({ field: "payment", value: "card" });
+  else if (/\bcash\b|on delivery|cod\b/.test(text)) actions.push({ field: "payment", value: "cash" });
+
+  // Dedupe: last action per field wins ("two teas, actually one coffee")
+  const byField = new Map();
+  for (const a of actions) byField.set(a.field, a);
+  return [...byField.values()];
+}
+
+const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function runActions(actions) {
+  const done = [];
+  let submit = false, reset = false;
+  for (const { field, value } of actions) {
+    if (field === "__submit") { submit = true; continue; }
+    if (field === "__reset") { reset = true; continue; }
+    const note = applyField(field, value);
+    if (note) { done.push(note); logAction(note); }
+  }
+  syncStateFromUI();
+
+  if (reset) { resetForm(); logAction("form reset"); return "Reset. Fresh cup."; }
+  if (submit) { placeOrder(true); return "Order placed."; }
+  return done.length ? `Updated ${done.length} field${done.length > 1 ? "s" : ""}` : "Heard you, but nothing matched — try \"two coffees\" or \"my name is Alex\".";
+}
+
+/* ── Order placement ────────────────────────────── */
+function placeOrder(fromVoice = false) {
+  syncStateFromUI();
+  if (fromVoice && !state.name && !state.email) { /* allow guest orders */ }
+  const num = Math.floor(1000 + Math.random() * 9000);
+  els.orderNum.textContent = `Order #${num}`;
+  const items = `${state.amount}× ${state.orderType}${state.amount > 1 ? "s" : ""}`;
+  els.orderSummary.textContent = `${items} — paid by ${state.payment}. ${state.name ? `For ${state.name}. ` : ""}Total $${(PRICES[state.orderType] * state.amount).toFixed(2)}.`;
+  els.formView.style.display = "none";
+  els.confirmView.style.display = "block";
+}
+els.placeOrder.addEventListener("click", () => placeOrder());
+els.newOrder.addEventListener("click", () => { resetForm(); });
+
+function resetForm() {
+  els.name.value = "";
+  els.email.value = "";
+  segSet(els.orderType, "coffee", false);
+  segSet(els.amount, "1", false);
+  segSet(els.payment, "card", false);
+  els.confirmView.style.display = "none";
+  els.formView.style.display = "flex";
+  syncStateFromUI();
+}
+
+/* ── Voice capture: press & hold to talk ────────── */
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+let recognition = null;
+let holding = false;
+let finalTranscript = "";
+let interimTranscript = "";
+let micBlocked = false;
+
+function renderTranscript() {
+  const parts = [];
+  if (finalTranscript) parts.push(escapeHtml(finalTranscript.trim()));
+  if (interimTranscript) parts.push(`<span class="interim">${escapeHtml(interimTranscript.trim())}</span>`);
+  els.transcript.innerHTML = parts.length
+    ? parts.join(" ")
+    : '<span class="placeholder">Your words will appear here…</span>';
+}
+const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+if (!SpeechRecognition) {
+  setStatus("error", "Voice needs Chrome / Edge");
+  els.micBtn.disabled = true;
+  els.micBtn.style.opacity = 0.4;
+  els.micBtn.style.cursor = "not-allowed";
+} else {
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+
+  recognition.onstart = () => setStatus("listening", "Listening…");
+  recognition.onresult = (event) => {
+    interimTranscript = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const result = event.results[i];
+      if (result.isFinal) finalTranscript += result[0].transcript + " ";
+      else interimTranscript += result[0].transcript;
+    }
+    renderTranscript();
+  };
+  recognition.onerror = (e) => {
+    if (e.error === "not-allowed") { micBlocked = true; setStatus("error", "Mic permission denied"); }
+    else if (e.error === "no-speech") setStatus("idle", "No speech heard — hold and try again");
+    else setStatus("error", `Mic error: ${e.error}`);
+    holding = false;
+    els.micBtn.classList.remove("holding");
+    els.micBtn.setAttribute("aria-pressed", "false");
+  };
+  recognition.onend = () => {
+    els.micBtn.classList.remove("holding");
+    els.micBtn.setAttribute("aria-pressed", "false");
+    if (!holding && !micBlocked) processFinal();
+  };
+
+  function startHold(e) {
+    e.preventDefault();
+    if (holding) return;
+    holding = true;
+    finalTranscript = "";
+    interimTranscript = "";
+    els.micBtn.classList.add("holding");
+    els.micBtn.setAttribute("aria-pressed", "true");
+    try { recognition.start(); } catch { /* already running */ }
+  }
+  function endHold() {
+    if (!holding) return;
+    holding = false;
+    try { recognition.stop(); } catch { processFinal(); }
+  }
+  function processFinal() {
+    const said = finalTranscript.trim();
+    renderTranscript();
+    if (!said) { setStatus("idle", "Hold to talk"); return; }
+    setStatus("thinking", "Thinking…");
+    // Tiny delay so the state is visible — then act.
+    setTimeout(() => {
+      const summary = runActions(parseTranscript(said));
+      setStatus(summary === "Reset. Fresh cup." ? "done" : "done", summary);
+      holding = false;
+    }, 350);
+  }
+
+  els.micBtn.addEventListener("pointerdown", startHold);
+  window.addEventListener("pointerup", endHold);
+  els.micBtn.addEventListener("pointerleave", () => { /* keep recording if pointer drifts off the button */ });
+  window.addEventListener("pointercancel", endHold);
+  els.micBtn.addEventListener("contextmenu", (e) => e.preventDefault());
+
+  // Keyboard: hold Space to talk
+  window.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && !/INPUT|TEXTAREA/.test(document.activeElement.tagName) && !e.repeat) startHold(e);
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code === "Space") endHold();
+  });
+}
+
+logAction("ready — hold the mic and speak");
+</script>
+</body>
+</html>
