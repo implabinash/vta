@@ -45,9 +45,9 @@ Also understood: *"start over"*, *"I'm done"*, *"one tea"*, *"three hot chocolat
 
 ## Accents
 
-The **Accent** selector (bottom right) defaults to **English (India)**, because Chrome's
-`en-IN` model handles Indian English far better than `en-US`. It's remembered in
-`localStorage`; switch to US/UK English for other voices.
+The **Accent** setting (gear icon in the voice bar) defaults to **English (India)**,
+because Chrome's `en-IN` model handles Indian English far better than `en-US`. It's
+remembered in `localStorage`; switch to US/UK English for other voices.
 
 Speech recognition is never perfect, so the parser is accent-tolerant:
 
@@ -65,7 +65,7 @@ the recorded audio to Google's speech models on the Gemini API **free tier** (no
 To enable it:
 
 1. Get a key at <https://aistudio.google.com/apikey>.
-2. In the voice bar, open **“Better accuracy — Gemini”**, paste the key, press **Use**.
+2. In the voice bar, open the **gear icon**, paste the key, press **Use**.
 3. Hold the mic as usual. The status shows *Transcribing…* instead of *Listening…*.
 
 ### Model fallback

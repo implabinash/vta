@@ -8,354 +8,434 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>☕</text></svg>" />
 <style>
   :root {
-    --bean: #3b2417;
-    --espresso: #241610;
-    --crust: #f5e9dc;
-    --paper: #fdf8f1;
-    --accent: #c96f2e;
-    --accent-dark: #a9541f;
-    --latte: #e8d9c8;
-    --ok: #2e7d4f;
-    --shadow: 0 18px 45px rgba(36, 22, 16, 0.18);
+    --bg: #f6f5f3;
+    --surface: #ffffff;
+    --ink: #15120f;
+    --muted: #6f6a64;
+    --line: #e6e2dc;
+    --line-strong: #d3cec6;
+    --accent: #c2410c;
+    --accent-soft: rgba(194, 65, 12, 0.12);
+    --ok: #15803d;
+    --danger: #dc2626;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
-    font-family: Georgia, 'Times New Roman', serif;
-    background:
-      radial-gradient(1200px 700px at 80% -10%, #f7e3cd 0%, transparent 60%),
-      radial-gradient(900px 600px at -10% 110%, #ecd7c0 0%, transparent 55%),
-      var(--crust);
-    color: var(--espresso);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Inter, sans-serif;
+    background: var(--bg);
+    background-image: radial-gradient(700px 420px at 50% -8%, #ffffff 0%, transparent 70%);
+    color: var(--ink);
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 28px 16px 140px; /* room for the voice bar */
+    display: grid;
+    place-items: center;
+    padding: 28px 20px 128px;
+    -webkit-font-smoothing: antialiased;
   }
 
+  /* ── Card ───────────────────────────────────────── */
   .card {
     width: 100%;
-    max-width: 960px;
-    background: var(--paper);
-    border: 1px solid rgba(59, 36, 23, 0.12);
-    border-radius: 22px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-    display: grid;
-    grid-template-columns: 380px 1fr;
-  }
-  @media (max-width: 860px) { .card { grid-template-columns: 1fr; } }
-
-  /* ── Left rail: the café ─────────────────────────── */
-  .rail {
-    background: linear-gradient(165deg, var(--bean) 0%, var(--espresso) 100%);
-    color: #f3e6d8;
-    padding: 40px 36px;
+    max-width: 420px;
+    min-height: 454px;
     display: flex;
     flex-direction: column;
-    gap: 26px;
-    position: relative;
-    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 28px;
+    box-shadow:
+      0 1px 2px rgba(21, 18, 15, 0.04),
+      0 18px 40px -18px rgba(21, 18, 15, 0.18);
   }
-  .rail::after {
-    content: "☕";
-    position: absolute;
-    font-size: 260px;
-    opacity: 0.05;
-    right: -40px;
-    bottom: -60px;
-    transform: rotate(-12deg);
-    pointer-events: none;
+
+  .wordmark {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 24px;
   }
-  .brand { font-size: 15px; letter-spacing: 0.28em; text-transform: uppercase; opacity: 0.75; }
-  .rail h1 { font-size: 44px; line-height: 1.08; font-weight: 400; }
-  .rail h1 em { color: #e6b985; font-style: italic; }
-  .rail p.lede { font-size: 15px; line-height: 1.55; opacity: 0.85; max-width: 34ch; }
+  .wordmark::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+  }
 
-  .menu { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
-  .menu h2 { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.6; font-weight: 400; }
-  .menu-item { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 1px dashed rgba(243,230,216,0.18); padding-bottom: 10px; }
-  .menu-item span:first-child { font-size: 17px; }
-  .menu-item small { display: block; font-size: 11px; opacity: 0.6; font-family: ui-sans-serif, system-ui, sans-serif; margin-top: 2px; }
-  .menu-item span:last-child { font-size: 15px; color: #e6b985; }
+  /* ── Form ───────────────────────────────────────── */
+  .form-view { display: flex; flex-direction: column; gap: 16px; }
 
-  .hint { font-size: 12.5px; line-height: 1.6; opacity: 0.7; font-family: ui-sans-serif, system-ui, sans-serif; border-left: 2px solid rgba(230,185,133,0.4); padding-left: 12px; }
-  kbd { background: rgba(255,255,255,0.12); border-radius: 4px; padding: 1px 6px; font-size: 11px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 380px) { .row { grid-template-columns: 1fr; } }
 
-  /* ── Right pane: the form ────────────────────────── */
-  .pane { padding: 40px 40px 36px; display: flex; flex-direction: column; gap: 22px; }
-  .pane-header { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--bean); padding-bottom: 12px; }
-  .pane-header h2 { font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent-dark); font-family: ui-sans-serif, system-ui, sans-serif; }
-  .pane-header span { font-size: 12px; color: #8a6f5c; font-family: ui-sans-serif, system-ui, sans-serif; }
-
-  .field { display: flex; flex-direction: column; gap: 8px; }
-  .field > label { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: #7c5a44; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field > label {
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--muted);
+  }
 
   input[type="text"], input[type="email"] {
-    font: inherit; font-size: 17px; padding: 12px 14px;
-    border: 1.5px solid var(--latte); border-radius: 10px; background: #fff;
-    color: var(--espresso); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
-    font-family: ui-sans-serif, system-ui, sans-serif;
+    font: inherit; font-size: 15px;
+    width: 100%; min-width: 0;
+    padding: 11px 13px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: #fbfaf9;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
   }
-  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(201,111,46,0.18); }
+  input::placeholder { color: #a8a29b; }
+  input[type="text"]:focus, input[type="email"]:focus {
+    border-color: var(--ink);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(21, 18, 15, 0.06);
+  }
 
-  .seg { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* ── Segmented controls ─────────────────────────── */
+  .seg { display: grid; gap: 6px; }
+  #orderType { grid-template-columns: repeat(3, 1fr); }
+  #amount { grid-template-columns: repeat(3, 1fr); }
+  #payment { grid-template-columns: repeat(2, 1fr); }
+
   .seg button {
-    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 14px;
-    padding: 10px 16px; border-radius: 999px; border: 1.5px solid var(--latte);
-    background: #fff; color: var(--espresso); cursor: pointer;
-    transition: all 0.18s; display: flex; align-items: center; gap: 8px;
+    font: inherit; font-size: 13px; font-weight: 500;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 6px;
+    min-height: 46px;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px;
+    line-height: 1.25; text-align: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.06s;
   }
-  .seg button small { opacity: 0.55; font-size: 11px; }
-  .seg button:hover { border-color: var(--accent); }
+  .seg button small { font-size: 10.5px; font-weight: 400; color: var(--muted); }
+  .seg button:hover { border-color: var(--line-strong); background: #fbfaf9; }
+  .seg button:active { transform: scale(0.985); }
   .seg button[aria-pressed="true"] {
-    background: var(--bean); border-color: var(--bean); color: #f3e6d8;
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
   }
+  .seg button[aria-pressed="true"] small { color: rgba(255, 255, 255, 0.6); }
 
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  @media (max-width: 520px) { .two-col { grid-template-columns: 1fr; } }
-
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; border-top: 1.5px dashed var(--latte); padding-top: 14px; font-family: ui-sans-serif, system-ui, sans-serif; }
-  .total-row span:first-child { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: #7c5a44; }
-  .total-row strong { font-size: 28px; color: var(--bean); }
+  /* ── Total + submit ─────────────────────────────── */
+  .total-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  .total-row span { font-size: 12px; color: var(--muted); }
+  .total-row strong { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
 
   .place-order {
-    font-family: ui-sans-serif, system-ui, sans-serif; font-size: 15px; letter-spacing: 0.14em; text-transform: uppercase;
-    background: var(--accent); color: #fff; border: none; border-radius: 12px;
-    padding: 16px; cursor: pointer; box-shadow: 0 8px 20px rgba(201,111,46,0.4);
-    transition: transform 0.15s, background 0.2s;
+    font: inherit; font-size: 14px; font-weight: 600;
+    color: #fff; background: var(--ink);
+    border: none; border-radius: 12px;
+    padding: 14px; width: 100%;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.06s;
   }
-  .place-order:hover { background: var(--accent-dark); transform: translateY(-1px); }
+  .place-order:hover { opacity: 0.88; }
+  .place-order:active { transform: scale(0.995); }
 
-  /* Field flash when voice fills it */
+  /* ── Confirmation ───────────────────────────────── */
+  .confirm { display: none; margin: auto 0; text-align: center; padding: 6px 0 2px; }
+  .confirm .num {
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .confirm h3 { font-size: 20px; font-weight: 600; margin: 10px 0 8px; }
+  .confirm p { font-size: 13.5px; line-height: 1.6; color: var(--muted); margin-bottom: 18px; }
+  .confirm button {
+    font: inherit; font-size: 13px;
+    padding: 10px 18px; border-radius: 10px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    cursor: pointer;
+  }
+  .confirm button:hover { background: #fbfaf9; }
+
+  /* ── One-shot highlight ─────────────────────────── */
   .flash { animation: flash 1.1s ease; }
   @keyframes flash {
-    0%, 45% { background: #ffe9c9; border-color: var(--accent); color: var(--espresso); box-shadow: 0 0 0 3px rgba(233,160,60,0.35); }
+    0%, 45% {
+      background: #fff3e6;
+      border-color: var(--accent);
+      color: var(--ink);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
     100% { background: transparent; box-shadow: none; }
   }
 
-  /* Order confirmation */
-  .confirm { display: none; text-align: center; padding: 18px 14px 4px; }
-  .confirm h3 { font-size: 24px; color: var(--ok); margin-bottom: 6px; }
-  .confirm .num { font-size: 13px; letter-spacing: 0.25em; color: var(--accent-dark); font-family: ui-sans-serif, system-ui, sans-serif; text-transform: uppercase; }
-  .confirm p { font-size: 14px; margin: 12px 0 14px; color: #6b4b37; font-family: ui-sans-serif, system-ui, sans-serif; }
-  .confirm button { background: none; border: 1.5px solid var(--bean); border-radius: 999px; padding: 10px 22px; cursor: pointer; font-family: ui-sans-serif, system-ui, sans-serif; }
+  /* ── Voice dock ─────────────────────────────────── */
+  .voice-dock {
+    position: fixed; left: 50%; bottom: 20px;
+    transform: translateX(-50%);
+    width: min(420px, calc(100vw - 32px));
+    z-index: 50;
+    display: flex; flex-direction: column; gap: 8px;
+  }
 
-  /* ── Voice bar ───────────────────────────────────── */
   .voice-bar {
-    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
-    width: min(720px, calc(100vw - 32px));
-    background: rgba(36, 22, 16, 0.92); backdrop-filter: blur(12px);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 18px;
-    padding: 14px 18px; display: flex; align-items: center; gap: 16px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.35); z-index: 50;
-    font-family: ui-sans-serif, system-ui, sans-serif; color: #f3e6d8;
+    display: flex; align-items: center; gap: 10px;
+    background: #15120f;
+    border-radius: 18px;
+    padding: 10px;
+    box-shadow: 0 12px 30px -10px rgba(21, 18, 15, 0.45);
   }
 
   .mic {
-    width: 64px; height: 64px; border-radius: 50%; border: none; flex: 0 0 auto;
-    background: linear-gradient(160deg, #d9822f, #b85e1e); color: #fff;
-    font-size: 26px; cursor: pointer; touch-action: none; user-select: none;
-    box-shadow: 0 6px 18px rgba(217,130,47,0.45), inset 0 -3px 6px rgba(0,0,0,0.25);
-    transition: transform 0.15s, box-shadow 0.2s;
+    width: 44px; height: 44px; flex: 0 0 auto;
+    border: none; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff; font-size: 18px;
     display: flex; align-items: center; justify-content: center;
+    cursor: pointer; touch-action: none; user-select: none;
+    transition: background 0.15s, transform 0.15s;
   }
-  .mic:hover { transform: scale(1.05); }
-  .mic.mic-off {
-    background: linear-gradient(160deg, #7a6a5e, #55463c);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 -3px 6px rgba(0,0,0,0.25);
-  }
+  .mic:hover { background: rgba(255, 255, 255, 0.2); }
+  .mic.mic-off { background: rgba(255, 255, 255, 0.06); opacity: 0.55; }
   .mic.holding {
-    background: linear-gradient(160deg, #e0492f, #b8321e);
-    transform: scale(1.12);
-    box-shadow: 0 0 0 8px rgba(224,73,47,0.25), 0 6px 24px rgba(224,73,47,0.5);
+    background: var(--accent);
+    transform: scale(1.06);
+    box-shadow: 0 0 0 6px rgba(194, 65, 12, 0.25);
     animation: pulse 1.1s ease-in-out infinite;
   }
-  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 6px rgba(224,73,47,0.3); } 50% { box-shadow: 0 0 0 14px rgba(224,73,47,0.12); } }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(194, 65, 12, 0.28); }
+    50% { box-shadow: 0 0 0 10px rgba(194, 65, 12, 0.1); }
+  }
 
   .voice-meta { flex: 1; min-width: 0; }
+
   .status-pill {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
-    color: #e6b985; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+    font-size: 9.5px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: #a8a29b;
+    margin-bottom: 3px;
   }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8f847c; }
-  .status-pill[data-state="listening"] .status-dot { background: #ff6a3d; animation: blink 0.8s infinite; }
-  .status-pill[data-state="thinking"] .status-dot { background: #f2c14e; animation: blink 0.5s infinite; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #57534e; }
+  .status-pill[data-state="listening"] .status-dot { background: #fb923c; animation: blink 0.9s infinite; }
+  .status-pill[data-state="thinking"] .status-dot { background: #fbbf24; animation: blink 0.6s infinite; }
   .status-pill[data-state="done"] .status-dot { background: #4ade80; }
   .status-pill[data-state="error"] .status-dot { background: #f87171; }
-  @keyframes blink { 50% { opacity: 0.25; } }
+  @keyframes blink { 50% { opacity: 0.3; } }
 
-  .transcript { font-size: 14.5px; min-height: 1.4em; color: #fdf3e3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .transcript .interim { opacity: 0.55; font-style: italic; }
-  .transcript .placeholder { opacity: 0.4; font-style: italic; }
+  .transcript {
+    font-size: 13px; color: #f5f5f4;
+    min-height: 1.3em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .transcript .placeholder { color: #78716c; }
+  .transcript .interim { color: #a8a29b; font-style: italic; }
 
-  .log { font-size: 11px; color: #a89a8e; max-height: 42px; overflow: hidden; margin-top: 6px; }
-  .log div { line-height: 1.5; }
+  /* The action log stays in the DOM for debugging but is not shown. */
+  .log { display: none; }
 
   .fallback-input {
-    margin-top: 8px; width: 100%; font: inherit; font-size: 13px;
-    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 8px; padding: 8px 10px; color: #fdf3e3; outline: none;
+    margin-top: 8px; width: 100%;
+    font: inherit; font-size: 12px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff; outline: none;
   }
-  .fallback-input::placeholder { color: #a89a8e; }
-  .fallback-input:focus { border-color: #e6b985; }
+  .fallback-input::placeholder { color: #78716c; }
 
-  .gbox { margin-top: 8px; font-size: 11px; color: #a89a8e; }
-  .gbox summary { cursor: pointer; list-style: none; letter-spacing: 0.04em; }
-  .gbox summary::-webkit-details-marker { display: none; }
-  .gbox summary::before { content: "▸ "; }
-  .gbox[open] summary::before { content: "▾ "; }
-  .gbox-state { color: #7a6a5e; text-transform: uppercase; letter-spacing: 0.16em; font-size: 9px; }
-  .gbox-state.on { color: #7ee2a8; }
-  .gbox-row { display: flex; gap: 6px; margin-top: 8px; }
-  .gbox-row input {
-    flex: 1; min-width: 0; font: inherit; font-size: 12px; padding: 7px 9px;
-    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
-    border-radius: 8px; color: #fdf3e3; outline: none;
+  .gear {
+    width: 36px; height: 36px; flex: 0 0 auto;
+    border: none; border-radius: 10px;
+    background: transparent; color: #a8a29b;
+    font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
   }
-  .gbox-row input:focus { border-color: #e6b985; }
-  .gbox-row button {
-    font: inherit; font-size: 11px; padding: 0 12px; border-radius: 8px; cursor: pointer;
-    background: #c96f2e; color: #fff; border: none;
-  }
-  .gbox-row button.ghost { background: transparent; border: 1px solid rgba(255,255,255,0.18); color: #cbb8a6; }
-  .gbox-note { margin: 6px 0 0; line-height: 1.5; }
-  .gbox-note a { color: #e6b985; }
+  .gear:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
-  .lang-wrap { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
-  .lang-wrap label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: #a89a8e; }
-  .lang-wrap select {
-    font: inherit; font-size: 12px; padding: 7px 8px; border-radius: 8px;
-    background: rgba(255,255,255,0.08); color: #fdf3e3;
-    border: 1px solid rgba(255,255,255,0.18); outline: none; cursor: pointer;
+  /* ── Settings panel ─────────────────────────────── */
+  .voice-panel {
+    display: flex; flex-direction: column; gap: 10px;
+    background: #1c1917;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    padding: 12px;
+    font-size: 12px; color: #d6d3d1;
   }
-  @media (max-width: 640px) { .lang-wrap { display: none; } }
+  .voice-panel[hidden] { display: none; }
 
-  @media (max-width: 640px) {
-    .voice-bar { gap: 10px; padding: 12px; }
-    .mic { width: 56px; height: 56px; font-size: 22px; }
-    .log { display: none; }
+  .panel-row { display: flex; align-items: center; gap: 8px; }
+  .panel-row > label {
+    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #a8a29b; flex: 0 0 auto;
+  }
+
+  #langSelect {
+    flex: 1; min-width: 0;
+    font: inherit; font-size: 12px;
+    padding: 7px 8px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff; outline: none; cursor: pointer;
+  }
+
+  #geminiKey {
+    flex: 1; min-width: 0;
+    font: inherit; font-size: 12px;
+    padding: 7px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff; outline: none;
+  }
+  #geminiKey::placeholder { color: #78716c; }
+
+  #geminiSave, #geminiClear {
+    font: inherit; font-size: 11px; font-weight: 500;
+    padding: 7px 10px; border-radius: 8px;
+    border: none; cursor: pointer;
+    background: #fff; color: #15120f;
+  }
+  #geminiClear {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: #d6d3d1;
+  }
+
+  .gbox-state {
+    font-size: 9px; font-weight: 600;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: #78716c;
+  }
+  .gbox-state.on { color: #4ade80; }
+
+  .panel-link {
+    margin-left: auto;
+    font-size: 11px; color: #a8a29b;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  }
+  .panel-link:hover { color: #fff; }
+
+  @media (max-width: 420px) {
+    body { padding: 20px 14px 140px; }
+    .card { padding: 22px; border-radius: 18px; }
   }
 </style>
 </head>
 <body>
 
 <main class="card">
-  <!-- Left rail -->
-  <aside class="rail">
-    <span class="brand">Bean &amp; Byte</span>
-    <h1>Order by <em>voice.</em><br />No mouse required.</h1>
-    <p class="lede">Hold the mic button, say your order naturally, and watch the form fill itself in. Voice, wired straight into the page.</p>
+  <div class="wordmark">Bean &amp; Byte</div>
 
-    <div class="menu">
-      <h2>Today's menu</h2>
-      <div class="menu-item"><span>Coffee<small>espresso · latte · cappuccino · mocha</small></span><span>$3.50</span></div>
-      <div class="menu-item"><span>Tea<small>green · chai · masala</small></span><span>$3.00</span></div>
-      <div class="menu-item"><span>Hot Chocolate<small>with whipped cream</small></span><span>$3.75</span></div>
+  <div id="formView" class="form-view">
+    <div class="row">
+      <div class="field">
+        <label for="name">Name</label>
+        <input type="text" id="name" placeholder="Alex Rivera" autocomplete="name" />
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+      </div>
     </div>
 
-    <p class="hint">Try saying: <kbd>my name is Alex, email alex at example dot com, two coffees, paying by card</kbd> — then <kbd>place the order</kbd>. First press the mic once to allow access, then just hold &amp; speak. Works in Chrome &amp; Edge.</p>
-  </aside>
-
-  <!-- Right pane -->
-  <section class="pane">
-    <div class="pane-header">
-      <h2>Your Order</h2>
-      <span>hold the mic · speak · release</span>
+    <div class="field">
+      <label>Drink</label>
+      <div class="seg" id="orderType">
+        <button data-value="coffee" aria-pressed="true"><span>Coffee</span><small>$3.50</small></button>
+        <button data-value="tea" aria-pressed="false"><span>Tea</span><small>$3.00</small></button>
+        <button data-value="hot chocolate" aria-pressed="false"><span>Hot chocolate</span><small>$3.75</small></button>
+      </div>
     </div>
 
-    <div id="formView" style="display:flex; flex-direction:column; gap:22px;">
-      <div class="two-col">
-        <div class="field">
-          <label for="name">Name</label>
-          <input type="text" id="name" placeholder="Alex Rivera" autocomplete="name" />
-        </div>
-        <div class="field">
-          <label for="email">Email</label>
-          <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+    <div class="row">
+      <div class="field">
+        <label>Quantity</label>
+        <div class="seg" id="amount">
+          <button data-value="1" aria-pressed="true">1</button>
+          <button data-value="2" aria-pressed="false">2</button>
+          <button data-value="3" aria-pressed="false">3</button>
         </div>
       </div>
 
       <div class="field">
-        <label>Order type</label>
-        <div class="seg" id="orderType">
-          <button data-value="coffee" aria-pressed="true">☕ Coffee <small>$3.50</small></button>
-          <button data-value="tea" aria-pressed="false">🍵 Tea <small>$3.00</small></button>
-          <button data-value="hot chocolate" aria-pressed="false">🍫 Hot Chocolate <small>$3.75</small></button>
+        <label>Payment</label>
+        <div class="seg" id="payment">
+          <button data-value="card" aria-pressed="true">Card</button>
+          <button data-value="cash" aria-pressed="false">Cash</button>
         </div>
       </div>
-
-      <div class="two-col">
-        <div class="field">
-          <label>Amount</label>
-          <div class="seg" id="amount">
-            <button data-value="1" aria-pressed="true">1</button>
-            <button data-value="2" aria-pressed="false">2</button>
-            <button data-value="3" aria-pressed="false">3</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Payment</label>
-          <div class="seg" id="payment">
-            <button data-value="card" aria-pressed="true">💳 Card</button>
-            <button data-value="cash" aria-pressed="false">💵 Cash</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="total-row"><span>Total</span><strong id="total">$3.50</strong></div>
-
-      <button class="place-order" id="placeOrder">Place Order →</button>
     </div>
 
-    <!-- Confirmation -->
-    <div class="confirm" id="confirmView">
-      <div class="num" id="orderNum">Order #</div>
-      <h3>Barista's waiting. ☕</h3>
-      <p id="orderSummary"></p>
-      <button id="newOrder">Start a new order</button>
-    </div>
-  </section>
+    <div class="total-row"><span>Total</span><strong id="total">$3.50</strong></div>
+
+    <button class="place-order" id="placeOrder">Place order</button>
+  </div>
+
+  <div class="confirm" id="confirmView">
+    <div class="num" id="orderNum">Order #</div>
+    <h3>Order placed</h3>
+    <p id="orderSummary"></p>
+    <button id="newOrder">New order</button>
+  </div>
 </main>
 
-<!-- Voice bar -->
-<div class="voice-bar" role="region" aria-label="Voice ordering">
-  <button class="mic" id="micBtn" aria-label="Hold to talk" aria-pressed="false">🎤</button>
-  <div class="voice-meta">
-    <div class="status-pill" id="statusPill" data-state="idle">
-      <span class="status-dot"></span>
-      <span id="statusText">Hold to talk</span>
+<div class="voice-dock">
+  <div class="voice-panel" id="voicePanel" hidden>
+    <div class="panel-row">
+      <label for="langSelect">Accent</label>
+      <select id="langSelect" aria-label="Speech recognition language">
+        <option value="en-IN">English (India)</option>
+        <option value="en-US">English (US)</option>
+        <option value="en-GB">English (UK)</option>
+      </select>
     </div>
-    <div class="transcript" id="transcript"><span class="placeholder">Your words will appear here…</span></div>
-    <div class="log" id="actionLog"></div>
-    <input id="fallbackInput" class="fallback-input" type="text" autocomplete="off"
-           placeholder="Mic blocked? Type a command and press Enter…" hidden />
-
-    <details class="gbox" id="geminiBox">
-      <summary>Better accuracy — Gemini <span class="gbox-state" id="geminiState">off</span></summary>
-      <div class="gbox-row">
-        <input id="geminiKey" type="password" autocomplete="off" spellcheck="false"
-               placeholder="Paste Gemini API key" />
-        <button type="button" id="geminiSave">Use</button>
-        <button type="button" id="geminiClear" class="ghost">Off</button>
-      </div>
-      <p class="gbox-note">
-        Free tier, no card. Key from
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.
-        Stored in this browser only.
-      </p>
-    </details>
+    <div class="panel-row">
+      <input id="geminiKey" type="password" autocomplete="off" spellcheck="false"
+             placeholder="Gemini API key (optional)" />
+      <button type="button" id="geminiSave">Use</button>
+      <button type="button" id="geminiClear">Off</button>
+    </div>
+    <div class="panel-row">
+      <span class="gbox-state" id="geminiState">off</span>
+      <a class="panel-link" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key</a>
+    </div>
   </div>
-  <div class="lang-wrap">
-    <label for="langSelect">Accent</label>
-    <select id="langSelect" aria-label="Speech recognition language">
-      <option value="en-IN">English (India)</option>
-      <option value="en-US">English (US)</option>
-      <option value="en-GB">English (UK)</option>
-    </select>
+
+  <div class="voice-bar" role="region" aria-label="Voice ordering">
+    <button class="mic" id="micBtn" aria-label="Hold to talk" aria-pressed="false">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+           stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="9" y="2.5" width="6" height="11.5" rx="3" />
+        <path d="M5 11a7 7 0 0 0 14 0" />
+        <line x1="12" y1="18" x2="12" y2="21.5" />
+      </svg>
+    </button>
+    <div class="voice-meta">
+      <div class="status-pill" id="statusPill" data-state="idle">
+        <span class="status-dot"></span>
+        <span id="statusText">Hold to talk</span>
+      </div>
+      <div class="transcript" id="transcript"><span class="placeholder">Say your order…</span></div>
+      <div class="log" id="actionLog"></div>
+      <input id="fallbackInput" class="fallback-input" type="text" autocomplete="off"
+             placeholder="Type a command…" hidden />
+    </div>
+    <button class="gear" id="settingsBtn" aria-label="Voice settings" aria-expanded="false">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+           stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" />
+      </svg>
+    </button>
   </div>
 </div>
 
@@ -655,8 +735,11 @@ function placeOrder(fromVoice = false) {
   if (fromVoice && !state.name && !state.email) { /* allow guest orders */ }
   const num = Math.floor(1000 + Math.random() * 9000);
   els.orderNum.textContent = `Order #${num}`;
-  const items = `${state.amount}× ${state.orderType}${state.amount > 1 ? "s" : ""}`;
-  els.orderSummary.textContent = `${items} — paid by ${state.payment}. ${state.name ? `For ${state.name}. ` : ""}Total $${(PRICES[state.orderType] * state.amount).toFixed(2)}.`;
+  const total = (PRICES[state.orderType] * state.amount).toFixed(2);
+  const parts = [`${state.amount} × ${capitalize(state.orderType)}`, capitalize(state.payment)];
+  if (state.name) parts.push(state.name);
+  parts.push(`$${total}`);
+  els.orderSummary.textContent = parts.join(" · ");
   els.formView.style.display = "none";
   els.confirmView.style.display = "block";
 }
@@ -1079,6 +1162,15 @@ els.geminiClear.addEventListener("click", () => {
 });
 els.geminiKey.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); els.geminiSave.click(); }
+});
+
+/* Settings panel: keeps accent + Gemini key out of the main UI. */
+const settingsBtn = $("#settingsBtn");
+const voicePanel = $("#voicePanel");
+settingsBtn.addEventListener("click", () => {
+  const open = voicePanel.hidden;
+  voicePanel.hidden = !open;
+  settingsBtn.setAttribute("aria-expanded", String(open));
 });
 setGeminiState();
 
