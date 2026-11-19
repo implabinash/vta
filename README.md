@@ -61,12 +61,27 @@ If recognition still struggles, use the **type-instead** box (same pipeline, no 
 ## Better accuracy: Gemini transcription (optional, free)
 
 Chrome's recognizer is the weak link on accented speech. The page can instead send
-the recorded audio to Google's `gemini-3.5-transcribe`, which is on the Gemini API
-**free tier** (no card). To enable it:
+the recorded audio to Google's speech models on the Gemini API **free tier** (no card).
+To enable it:
 
 1. Get a key at <https://aistudio.google.com/apikey>.
 2. In the voice bar, open **“Better accuracy — Gemini”**, paste the key, press **Use**.
 3. Hold the mic as usual. The status shows *Transcribing…* instead of *Listening…*.
+
+### Model fallback
+
+Free-tier access varies per project, so the app tries models in order and sticks
+with the first one that works:
+
+| Order | Model | Free-tier limits (typical) | Role |
+|---|---|---|---|
+| 1 | `gemini-3.5-transcribe` | often not available on free tier (503) | purpose-built ASR, best accuracy |
+| 2 | `gemini-3.5-flash-lite` | 15 RPM / 500 RPD | audio understanding + strict "transcribe only" prompt |
+
+If the first model answers *"experiencing high demand"* (a 503 that usually means
+"not enabled for your project"), the app logs `… failed — trying fallback` and
+retries with Flash Lite. A bad key is treated as fatal: one request, then
+`Gemini: key invalid — paste it again`.
 
 Notes:
 

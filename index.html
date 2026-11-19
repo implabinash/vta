@@ -702,43 +702,103 @@ function extractGeminiText(data) {
   return parts.join(" ").trim();
 }
 
+/* Model fallback chain.
+   1. gemini-3.5-transcribe — purpose-built ASR, but often unavailable
+      on free tier (Google answers 503 "high demand").
+   2. gemini-3.5-flash-lite — audio understanding, 15 RPM / 500 RPD free,
+      which is plenty for a demo. Same pipeline afterwards.
+   Once a fallback works we stay on it, so we don't burn quota retrying. */
+const GEMINI_MODELS = [
+  { id: "gemini-3.5-transcribe", kind: "transcribe" },
+  { id: "gemini-3.5-flash-lite", kind: "audio" },
+];
+let geminiModelIndex = 0;
+
+const MENU_VOCAB = [
+  "coffee", "latte", "cappuccino", "mocha", "americano", "espresso",
+  "tea", "chai", "hot chocolate", "card", "cash", "place order", "start over",
+];
+
+/* Ask one model for a transcript. Throws an Error with `.fatal` when the
+   problem is the key itself (no point trying other models). */
+async function callGemini(model, b64, lang) {
+  const input = [{ type: "audio", data: b64, mime_type: "audio/webm" }];
+  const generation_config = {};
+
+  if (model.kind === "transcribe") {
+    generation_config.transcription_config = {
+      language_codes: [lang],
+      custom_vocabulary: MENU_VOCAB,
+    };
+  } else {
+    input.push({
+      type: "text",
+      text:
+        "Transcribe the audio exactly as spoken, in English. " +
+        "Output only the transcript, with no quotes, labels, or commentary. " +
+        "Write numbers as words (e.g. two, three).",
+    });
+    generation_config.temperature = 0;
+  }
+
+  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
+    body: JSON.stringify({ model: `models/${model.id}`, input, generation_config }),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  const body = Array.isArray(data) ? data[0] : data;
+
+  if (!res.ok) {
+    const details = (body && body.error && body.error.details) || [];
+    const reason = details[0] && details[0].reason;
+    const err = new Error(
+      (body && body.error && body.error.message) || `HTTP ${res.status}`
+    );
+    err.status = res.status;
+    err.reason = reason;
+    err.fatal = reason === "API_KEY_INVALID" || res.status === 401 || res.status === 403;
+    throw err;
+  }
+  return cleanTranscript(extractGeminiText(data));
+}
+
+/* Chat models sometimes wrap the answer. Strip the usual wrappers. */
+function cleanTranscript(text) {
+  return String(text || "")
+    .replace(/^\s*(the\s+)?(audio|recording|speaker|transcript)\s*(says?|said|is|reads?)\s*[:\-]\s*/i, "")
+    .replace(/^["'“”]+|["'“”]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function transcribeWithGemini(blob) {
   setStatus("thinking", "Transcribing…");
   const b64 = await blobToBase64(blob);
   const lang = els.langSelect.value || "en-IN";
-  const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": geminiKey,
-    },
-    body: JSON.stringify({
-      model: "models/gemini-3.5-transcribe",
-      input: [{ type: "audio", data: b64, mime_type: "audio/webm" }],
-      generation_config: {
-        transcription_config: {
-          language_codes: [lang],
-          custom_vocabulary: [
-            "coffee", "latte", "cappuccino", "mocha", "americano", "espresso",
-            "tea", "chai", "hot chocolate", "card", "cash", "place order", "start over",
-          ],
-        },
-      },
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  const body = Array.isArray(data) ? data[0] : data;
-  if (!res.ok) {
-    const msg = (body && body.error && body.error.message) || `HTTP ${res.status}`;
-    const details = (body && body.error && body.error.details) || [];
-    const reason = details[0] && details[0].reason;
-    if (reason === "API_KEY_INVALID") throw new Error("key invalid — paste it again");
-    if (res.status === 429) throw new Error("rate limited — wait a few seconds");
-    throw new Error(msg);
+
+  let lastErr = null;
+  for (let i = geminiModelIndex; i < GEMINI_MODELS.length; i++) {
+    const model = GEMINI_MODELS[i];
+    try {
+      const text = await callGemini(model, b64, lang);
+      if (!text) throw new Error("no speech detected");
+      if (i !== geminiModelIndex) {
+        geminiModelIndex = i;
+        logAction(`switched to ${model.id} (previous model unavailable)`);
+      }
+      return text;
+    } catch (err) {
+      lastErr = err;
+      if (err.fatal) break;
+      logAction(`${model.id} failed — trying fallback`);
+    }
   }
-  const text = extractGeminiText(data);
-  if (!text) throw new Error("no speech detected");
-  return text;
+
+  if (lastErr && lastErr.fatal) throw new Error("key invalid — paste it again");
+  if (lastErr && lastErr.status === 429) throw new Error("rate limited — wait a few seconds");
+  throw new Error((lastErr && lastErr.message) || "transcription failed");
 }
 
 async function startGeminiRecording() {
@@ -776,8 +836,10 @@ async function startGeminiRecording() {
         setStatus("done", summary);
       }, 200);
     } catch (err) {
-      setStatus("error", `Gemini: ${err.message}`);
-      logAction(`gemini error — ${err.message}`);
+      const short = String(err.message || "failed").replace(/\s+/g, " ").slice(0, 90);
+      els.transcript.innerHTML = '<span class="placeholder">nothing transcribed</span>';
+      setStatus("error", `Gemini: ${short}`);
+      logAction(`gemini error — ${short}`);
     }
   };
   recorder.start();
