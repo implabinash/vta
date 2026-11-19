@@ -3,9 +3,9 @@
 A single-page prototype that shows a voice layer taking real actions on a web page:
 hold the mic, speak naturally, and the order form fills itself in.
 
-**Zero dependencies, zero backend.** One file: `index.html`.
-Voice works out of the box with the browser's built-in recognizer; an optional free
-Gemini API key upgrades accuracy a lot.
+**No build step, no backend.** One file: `index.html`. Type is Inter, loaded from
+Google Fonts. Voice works out of the box with the browser's built-in recognizer; an
+optional free Gemini API key upgrades accuracy a lot.
 
 ## Run it
 
